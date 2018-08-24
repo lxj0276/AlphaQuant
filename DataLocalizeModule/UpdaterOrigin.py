@@ -270,12 +270,13 @@ class UpdaterOrigin:
                                  dtype=FieldTypeDict)
                 self.logger.info('{0} : {1} obs updated with {2} seconds'
                                  .format(funcName, shareInfo.shape[0], time.time() - start))
-                self.patch_next_anndt(tableName=tableName, dbName=dbName)
+                # self.patch_next_anndt(tableName=tableName, dbName=dbName)
             except BaseException as e:
-                mysqlCursor.execute('DELETE FROM {0} WHERE ANN_DT>{1}'.format(tableName, latestDate))
-                self.connMysqlRead.commit()
+                # mysqlCursor.execute('DELETE FROM {0} WHERE ANN_DT>{1}'.format(tableName, latestDate))
+                # self.connMysqlRead.commit()
                 self.logger.error('{0} : update failed, table cleaned'.format(funcName))
                 raise e
+            self.patch_next_anndt(tableName=tableName, dbName=dbName)
         else:
             self.logger.info('{0} : no new data to update'.format(funcName))
 

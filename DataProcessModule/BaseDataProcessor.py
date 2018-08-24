@@ -29,8 +29,10 @@ class BaseDataProcessor:
 
     def __init__(self, basePath=None):
         if basePath is None:
-            basePath = os.path.join(rootPath, 'BaseDataProcessor')
+            basePath = os.path.join(rootPath, 'DataProcessModule')
         cfp = cp.ConfigParser()
+        cfp.read(os.path.join(basePath, 'configs', 'dataPath.ini'))
+        self.h5Path = cfp.get('data','h5')
         cfp.read(os.path.join(basePath, 'configs', 'loginInfo.ini'))
         loginfoMysql = dict(cfp.items('Mysql'))
         self.connMysqlWrite = create_engine(r'mysql+mysqldb://{user}:{password}@{host}:{port}/{database}?charset={charset}'
@@ -92,7 +94,7 @@ class BaseDataProcessor:
                                  chunksize=2000,
                                  dtype={t.STKCNT: sqltp.INT, t.DATE: sqltp.VARCHAR(8)})
                 self.logger.info('{0} : Response Filter updated, from {1} to {2} updated'
-                                 .format(funcName, datesToUpdate[0], datesToUpdate[1]))
+                                 .format(funcName, datesToUpdate[0], datesToUpdate[-1]))
             except Exception as e:
                 if lastUpdt == 0:
                     mysqlCursor.execute('DROP TABLE {}'.format(tableName))
@@ -105,7 +107,7 @@ class BaseDataProcessor:
         else:
             self.logger.info('{0} : no new data to update, last update {1}'.format(funcName, lastUpdt))
 
-    def update_features_filter(self):
+    def update_features_filter(self, updateH5=False):
         """
         生成 特征 过滤条件 目前包括：
                     当日停牌
@@ -130,12 +132,20 @@ class BaseDataProcessor:
         mysqlCursor.execute('USE {}'.format(self.dbName))
         mysqlCursor.execute('SHOW TABLES')
         # check last update
-        allTables = [tb[0].upper() for tb in mysqlCursor.fetchall()]
-        if tableName.upper() not in allTables:
-            lastUpdt = 0
-        else:
-            mysqlCursor.execute('SELECT MAX({0}) FROM {1}'.format(ALIAS_FIELDS.DATE, tableName))
-            lastUpdt = mysqlCursor.fetchall()[0][0]
+        if not updateH5:
+            allTables = [tb[0].upper() for tb in mysqlCursor.fetchall()]
+            if tableName.upper() not in allTables:
+                lastUpdt = 0
+            else:
+                mysqlCursor.execute('SELECT MAX({0}) FROM {1}'.format(ALIAS_FIELDS.DATE, tableName))
+                lastUpdt = mysqlCursor.fetchall()[0][0]
+        else:       # 更新 h5 文件
+            h5File = os.path.join(self.h5Path,'{}.h5'.format(tableName))
+            if not os.path.exists(h5File):
+                lastUpdt = 0
+            else:
+                lastUpdt = 0
+
         # 查看最新数据进度
         t = ALIAS_FIELDS
         mysqlCursor.execute('SELECT TRADE_DT FROM {0} WHERE TRADE_DT>{1}'.format(ALIAS_TABLES.TRDDATES, lastUpdt))   # 通过日期表查询 速度较快
@@ -290,6 +300,13 @@ class BaseDataProcessor:
             self.logger.info('{0} : no new data to update, last update {1}'.format(funcName, lastUpdt))
         print(time.time() - s)
 
+
+    def update_h5_files(self):
+        """
+        更新需要的 h5 数据
+        :return:
+        """
+        pass
 
 
 if __name__=='__main__':
