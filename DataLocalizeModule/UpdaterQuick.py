@@ -1,7 +1,5 @@
 #coding=utf8
 
-import re
-import os
 import sys
 
 import numpy as np

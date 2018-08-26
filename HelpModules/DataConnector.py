@@ -11,11 +11,9 @@ import configparser as cp
 
 import mysql.connector
 from sqlalchemy import create_engine
-import sqlalchemy.types as sqltp
 import pymysql
 pymysql.install_as_MySQLdb()
 
-from DataLocalizeModule.ConstantsDB import FieldTypeDict
 from DataReaderModule.Constants import ALIAS_FIELDS,ALIAS_TABLES,DatabaseNames,rootPath
 
 
