@@ -7,7 +7,13 @@ import time
 
 import pickle
 import re
+import os
 
+
+c = os.system('copy test.h5 test1.h5')
+print(c)
+
+raise
 
 s = time.time()
 b = pd.DataFrame({'a':range(10),'b':range(1,11),'c':range(10)})

@@ -1,5 +1,7 @@
+# coding=utf8
 __author__ = 'wangjp'
 
+import re
 import os
 import sys
 import time
@@ -17,8 +19,13 @@ pymysql.install_as_MySQLdb()
 
 from HelpModules.Logger import Logger
 from HelpModules.Calendar import Calendar
-from DataReaderModule.Constants import *
+from HelpModules.DataConnector import DataConnector
 from DataReaderModule.DataReader import DataReader
+from DataReaderModule.Constants import DatabaseNames, rootPath
+from DataReaderModule.Constants import ALIAS_TABLES as alt
+from DataReaderModule.Constants import ALIAS_FIELDS as alf
+from DataReaderModule.Constants import ALIAS_STATUS as als
+
 
 
 
@@ -30,82 +37,44 @@ class BaseDataProcessor:
     def __init__(self, basePath=None):
         if basePath is None:
             basePath = os.path.join(rootPath, 'DataProcessModule')
-        cfp = cp.ConfigParser()
-        cfp.read(os.path.join(basePath, 'configs', 'dataPath.ini'))
-        self.h5Path = cfp.get('data','h5')
-        cfp.read(os.path.join(basePath, 'configs', 'loginInfo.ini'))
-        loginfoMysql = dict(cfp.items('Mysql'))
-        self.connMysqlWrite = create_engine(r'mysql+mysqldb://{user}:{password}@{host}:{port}/{database}?charset={charset}'
-                                            .format(**loginfoMysql))
-        self.connMysqlRead = mysql.connector.connect(user=loginfoMysql['user'],
-                                                     password=loginfoMysql['password'],
-                                                     host=loginfoMysql['host'])
-        self.dbName = DatabaseNames.MysqlDaily
-        # create logger
         self.logger = Logger(logPath=os.path.join(basePath,'log')).get_logger(logName='data_processor',loggerName=__name__)
         self.logger.info('')
-        # create calendar
         self.calendar = Calendar()
-        # create reader
-        self.dataReader  = DataReader(basePath=None, connectRemote=False)
+        self.dataReader = DataReader(basePath=None, connectRemote=False)
+        self.dataConnector = DataConnector(logger=self.logger)
 
-    def update_stock_count(self):
+    def update_stock_count(self, updateH5=False):
         """
         计算每日 上市的 股票数量，包含停牌
         :return:
         """
         funcName = sys._getframe().f_code.co_name
-        tableName = ALIAS_TABLES.DAILYCNT
-        mysqlCursor = self.connMysqlRead.cursor()
-        mysqlCursor.execute('USE {}'.format(self.dbName))
-        mysqlCursor.execute('SHOW TABLES')
-        # check last update
-        allTables = [tb[0].upper() for tb in mysqlCursor.fetchall()]
-        if tableName.upper() not in allTables:
-            lastUpdt = 0
-        else:
-            mysqlCursor.execute('SELECT MAX({0}) FROM {1}'.format(ALIAS_FIELDS.DATE, tableName))
-            lastUpdt = mysqlCursor.fetchall()[0][0]
+        tableName = alt.DAILYCNT
         # 查看最新数据进度
-        t = ALIAS_FIELDS
-        mysqlCursor.execute('SELECT MAX({0}) FROM {1}'.format(t.DATE, ALIAS_TABLES.TRDDATES))  # 通过日期表查询 速度较快
-        availableDate = mysqlCursor.fetchall()[0][0]
+        availableDate = self.dataConnector.get_last_available(fast=True)
+        lastUpdt = self.dataConnector.get_last_update(tableName=tableName, isH5=updateH5)
         # extract base data
         if availableDate > str(lastUpdt):
-            baseFields = [t.TRDSTAT]
+            # 提取数据
+            baseFields = [alf.TRDSTAT]
             baseData = self.dataReader.get_data(headDate=lastUpdt,
                                                 tailDate=None,
                                                 stkList=None,
                                                 fields=baseFields,
-                                                dbName=self.dbName,
+                                                dbName=self.dataConnector.dbName,
                                                 useCache=False,
-                                                selectType='OpenClose',
-                                                )
-            procData = baseData.groupby(by=t.DATE).count()
-            procData.columns = [t.STKCNT]
-            datesToUpdate = procData.index.values
-            try:  # 写入数据库
-                self.logger.info('{0} writing daily stocks count into database , from {1} to {2} to write...'
-                                 .format(funcName, datesToUpdate[0], datesToUpdate[-1]))
-                pd.io.sql.to_sql(procData,
-                                 name=tableName,
-                                 con=self.connMysqlWrite,
-                                 if_exists='append',
-                                 chunksize=2000,
-                                 dtype={t.STKCNT: sqltp.INT, t.DATE: sqltp.VARCHAR(8)})
-                self.logger.info('{0} : Response Filter updated, from {1} to {2} updated'
-                                 .format(funcName, datesToUpdate[0], datesToUpdate[-1]))
-            except Exception as e:
-                if lastUpdt == 0:
-                    mysqlCursor.execute('DROP TABLE {}'.format(tableName))
-                else:
-                    mysqlCursor.execute(
-                        'DELETE FROM {0} WHERE {1}>{2}'.format(tableName, t.DATE, lastUpdt))  # 清理不能包含 lastupdt
-                self.connMysqlRead.commit()
-                self.logger.error('{0} : update failed, table cleaned'.format(funcName))
-                raise e
+                                                selectType='OpenClose',)
+            procData = baseData.groupby(by=alf.DATE).count()
+            procData.columns = [alf.STKCNT]
+            # 存储数据
+            typeDict = {alf.STKCNT: sqltp.INT, alf.DATE: sqltp.VARCHAR(8)} if not updateH5 else None
+            self.dataConnector.store_table(tableData=procData,
+                                           tableName=tableName,
+                                           if_exist='append',
+                                           isH5=updateH5,
+                                           typeDict=typeDict)
         else:
-            self.logger.info('{0} : no new data to update, last update {1}'.format(funcName, lastUpdt))
+            self.logger.info('{0} : No new data to update, last update {1}'.format(funcName, lastUpdt))
 
     def update_features_filter(self, updateH5=False):
         """
@@ -125,97 +94,64 @@ class BaseDataProcessor:
         :param stkList:  None 则提取全部股票代码
         :return:
         """
-        s = time.time()
         funcName = sys._getframe().f_code.co_name
-        tableName = ALIAS_TABLES.XFILTER
-        mysqlCursor = self.connMysqlRead.cursor()
-        mysqlCursor.execute('USE {}'.format(self.dbName))
-        mysqlCursor.execute('SHOW TABLES')
-        # check last update
-        if not updateH5:
-            allTables = [tb[0].upper() for tb in mysqlCursor.fetchall()]
-            if tableName.upper() not in allTables:
-                lastUpdt = 0
-            else:
-                mysqlCursor.execute('SELECT MAX({0}) FROM {1}'.format(ALIAS_FIELDS.DATE, tableName))
-                lastUpdt = mysqlCursor.fetchall()[0][0]
-        else:       # 更新 h5 文件
-            h5File = os.path.join(self.h5Path,'{}.h5'.format(tableName))
-            if not os.path.exists(h5File):
-                lastUpdt = 0
-            else:
-                lastUpdt = 0
-
+        tableName = alt.XFILTER
         # 查看最新数据进度
-        t = ALIAS_FIELDS
-        mysqlCursor.execute('SELECT TRADE_DT FROM {0} WHERE TRADE_DT>{1}'.format(ALIAS_TABLES.TRDDATES, lastUpdt))   # 通过日期表查询 速度较快
-        newTradeDates = pd.DataFrame(mysqlCursor.fetchall(), columns=[t.DATE])
-        # extract base data
-        if not newTradeDates.empty:    # 有新数据 可更新
+        availableDate = self.dataConnector.get_last_available(fast=True)
+        lastUpdt = self.dataConnector.get_last_update(tableName=tableName, isH5=updateH5)
+        if availableDate > str(lastUpdt):    # 有新数据 可更新
             cutDate = self.calendar.tdaysoffset(num=-100, currDates=lastUpdt)  # 计算需要提前一定长度的数据, 注意下面取数据是 左开右闭 方式
-            baseFields = [t.PCTCHG, t.AMOUNT, t.TRDSTAT, t.STSTAT]
+            baseFields = [alf.PCTCHG, alf.AMOUNT, alf.TRDSTAT, alf.STSTAT]
             baseData = self.dataReader.get_data(headDate=cutDate,
                                                 tailDate=None,
                                                 stkList=None,
                                                 fields=baseFields,
-                                                dbName=self.dbName,
+                                                dbName=self.dataConnector.dbName,
                                                 useCache=False,
                                                 selectType='CloseClose' if lastUpdt==0 else 'OpenClose')  # 不包含 lastupdt
             # 计算 filter
-            baseData['NOTRADE'] = baseData[t.TRDSTAT].isin([5, 6])   # 停牌
-            baseData['PRENOTRADE'] = baseData[t.TRDSTAT].groupby(level=t.STKCD).shift(1).isin([5, 6])  # 前一日停牌
-            baseData['ISST'] = baseData[t.STSTAT]                   # ST
-            baseData['LIMITUP'] = baseData[t.PCTCHG]>=0.099         # 涨停
-            baseData['LIMITDOWN'] = baseData[t.PCTCHG]<=-0.099      # 跌停
-            baseData['INSFAMT'] = baseData[t.AMOUNT]<=20000000/1000      # 成交额不足两千万 成交额 单位 千元
+            baseData[als.NOTRD] = baseData[alf.TRDSTAT].isin([5, 6])   # 当日 停牌
+            baseData[als.PNOTRD] = baseData[alf.TRDSTAT].groupby(level=alf.STKCD).shift(1).isin([5, 6])  # 前一日停牌
+            baseData[als.ISST] = baseData[alf.STSTAT]                   # 当日 ST
+            baseData[als.LMUP] = baseData[alf.PCTCHG]>=0.099         # 当日 涨停
+            baseData[als.LMDW] = baseData[alf.PCTCHG]<=-0.099      # 当日 跌停
+            baseData[als.INSFAMT] = baseData[alf.AMOUNT]<=20000000/1000      # 当日 成交额不足两千万 成交额 单位：千元
             baseData['listcnt'] = 1     # 只要有数据就是listed,还未退市
-            baseData['INSFLIST'] = baseData['listcnt'].groupby(level=t.STKCD).cumsum()<100  # 上市不足100个交易日, 可以过滤掉新股上市首日
-            baseData['HASTRADE'] = ~baseData['NOTRADE']
-            baseData['INSFTRADE'] = baseData[['HASTRADE']].groupby(level=t.STKCD,as_index=False,group_keys=False,sort=False)\
+            baseData[als.INSFLST] = baseData['listcnt'].groupby(level=alf.STKCD, sort=False).cumsum()<100  # 上市不足100个交易日, 可以过滤掉新股上市首日
+            baseData['hastrd'] = ~baseData[als.NOTRD]
+            baseData[als.INSFTRD] = baseData[['hastrd']].groupby(level=alf.STKCD,as_index=False,group_keys=False,sort=False)\
                                         .rolling(window=100, min_periods=0).sum()<50  # 最近100个交易日中交易天数小于50
-            # 复牌不足100个交易日的重组股等
-            newTradeDates['REAL_SHIFT'] = newTradeDates[t.DATE].shift(100)
-            newTradeDates.set_index(t.DATE, inplace=True)
-            baseData = baseData.join(newTradeDates, how='left')
+            # 复牌不足100个交易日的重组股等 可以处理存在数据缺失 的情况
+            sqlLines = 'SELECT * FROM {0} WHERE {1}>={2}'.format(alt.TRDDATES, alf.DATE, cutDate)
+            tradeDates = pd.read_sql(sql=sqlLines, con=self.dataConnector.connMysqlRead)
+            tradeDates['REAL_SHIFT'] = tradeDates[alf.DATE].shift(100)      # 真实对应的 交易日 shift
+            tradeDates.set_index(alf.DATE, inplace=True)
+            baseData = baseData.join(tradeDates, how='left')
             baseData.reset_index(inplace=True)
-            baseData['DATA_SHIFT'] = baseData.groupby(by=t.STKCD,as_index=False,sort=False).shift(100)[t.DATE]
-            baseData['INSFRESUM'] = baseData['DATA_SHIFT'] < baseData['REAL_SHIFT']
-            baseData.sort_values(by=[t.DATE, t.STKCD], inplace=True)
-            baseData.set_index([t.DATE, t.STKCD], inplace=True)
-            filterColumns = ['NOTRADE', 'PRENOTRADE', 'ISST', 'LIMITUP', 'LIMITDOWN', 'INSFAMT','INSFTRADE','INSFLIST','INSFRESUM']
-            filterTypes = {col : sqltp.BOOLEAN for col in filterColumns}
-            filterTypes[t.DATE] = sqltp.VARCHAR(8)
-            filterTypes[t.STKCD] = sqltp.VARCHAR(40)
+            baseData['DATA_SHIFT'] = baseData.groupby(by=alf.STKCD,as_index=False,sort=False).shift(100)[alf.DATE]      # 数据中 对应的 交易日 shift
+            baseData[als.INSFRSM] = baseData['DATA_SHIFT'] < baseData['REAL_SHIFT']
+            baseData.sort_values(by=[alf.DATE, alf.STKCD], inplace=True)
+            baseData.set_index([alf.DATE, alf.STKCD], inplace=True)
+            # 清理 baseData 用于最终存储
+            filterColumns = [als.NOTRD, als.PNOTRD, als.ISST, als.LMUP, als.LMDW, als.INSFAMT, als.INSFTRD, als.INSFLST, als.INSFRSM]
             outDates = baseData.index.levels[0].values      # baseData的 所有日期
             newTail = np.max(outDates)
             newHead = np.min(outDates[outDates>str(lastUpdt)])
-            baseData = baseData.loc[(slice(newHead,newTail),slice(None)), filterColumns]
-            dataShape = baseData.shape
-            try:    # 写入数据库
-                self.logger.info('{0} writing Features Filter into database , {1} rows and {2} cols to write...'
-                                 .format(funcName,dataShape[0], dataShape[1]))
-                pd.io.sql.to_sql(baseData,
-                                 name=tableName,
-                                 con=self.connMysqlWrite,
-                                 if_exists='append',
-                                 chunksize=2000,
-                                 dtype=filterTypes)
-                self.logger.info('{0} : Features Filter updated, with {1} rows and {2} cols'
-                                 .format(funcName, dataShape[0], dataShape[1]))
-            except Exception as e:
-                if lastUpdt==0:
-                    mysqlCursor.execute('DROP TABLE {}'.format(tableName))
-                else:
-                    mysqlCursor.execute('DELETE FROM {0} WHERE {1}>{2}'.format(tableName, t.DATE, lastUpdt))    # 清理不能包含 lastupdt
-                self.connMysqlRead.commit()
-                self.logger.error('{0} : update failed, table cleaned'.format(funcName))
-                raise e
+            baseData = baseData.loc[(slice(newHead,newTail),slice(None)), filterColumns]    # 去除此前多取得部分，提取对应 列
+            # type Dict
+            filterTypes = {col : sqltp.BOOLEAN for col in filterColumns}
+            filterTypes[alf.DATE] = sqltp.VARCHAR(8)
+            filterTypes[alf.STKCD] = sqltp.VARCHAR(40)
+            # 存储数据
+            self.dataConnector.store_table(tableData=baseData,
+                                           tableName=tableName,
+                                           if_exist='append',
+                                           isH5=updateH5,
+                                           typeDict=filterTypes)
         else:
-            self.logger.info('{0} : no new data to update, last update {1}'.format(funcName, lastUpdt))
-        print(time.time() - s)
+            self.logger.info('{0} : No new data to update, last update {1}'.format(funcName, lastUpdt))
 
-
-    def update_response_filter(self):
+    def update_response_filter(self, updateH5=False):
         """
         生成 response 过滤条件：
         开盘（考虑买入）  收盘（考虑卖出)
@@ -231,86 +167,57 @@ class BaseDataProcessor:
         注 ： 涨跌停板制度是1996年12月13日发布、1996年12月16日开始实施的 此前标记的涨跌停 可能不准确
         :return:
         """
-        s = time.time()
         funcName = sys._getframe().f_code.co_name
-        tableName = ALIAS_TABLES.YFILTER
-        mysqlCursor = self.connMysqlRead.cursor()
-        mysqlCursor.execute('USE {}'.format(self.dbName))
-        mysqlCursor.execute('SHOW TABLES')
-        # check last update
-        allTables = [tb[0].upper() for tb in mysqlCursor.fetchall()]
-        if tableName.upper() not in allTables:
-            lastUpdt = 0
-        else:
-            mysqlCursor.execute('SELECT MAX({0}) FROM {1}'.format(ALIAS_FIELDS.DATE, tableName))
-            lastUpdt = mysqlCursor.fetchall()[0][0]
+        tableName = alt.YFILTER
         # 查看最新数据进度
-        t = ALIAS_FIELDS
-        mysqlCursor.execute('SELECT MAX({0}) FROM {1}'.format(t.DATE, ALIAS_TABLES.TRDDATES))      # 通过日期表查询 速度较快
-        availableDate = mysqlCursor.fetchall()[0][0]
+        availableDate = self.dataConnector.get_last_available(fast=True)
+        lastUpdt = self.dataConnector.get_last_update(tableName=tableName, isH5=updateH5)
         # extract base data
         if availableDate > str(lastUpdt):
-            baseFields = [t.PCTCHG, t.OPEN, t.CLOSE, t.TRDSTAT, t.STSTAT]
+            baseFields = [alf.PCTCHG, alf.OPEN, alf.CLOSE, alf.TRDSTAT, alf.STSTAT]
             baseData = self.dataReader.get_data(headDate=lastUpdt,
                                                 tailDate=None,
                                                 stkList=None,
                                                 fields=baseFields,
-                                                dbName=self.dbName,
+                                                dbName=self.dataConnector.dbName,
                                                 useCache=False,
                                                 selectType='CloseClose' if lastUpdt==0 else 'OpenClose',
                                                 )
-            baseData['CCRet'] = baseData[t.PCTCHG]
-            baseData['OCRet'] = (baseData[t.CLOSE]/baseData[t.OPEN] - 1)    # 当天 开盘到收盘 收益
+            baseData['CCRet'] = baseData[alf.PCTCHG]
+            baseData['OCRet'] = (baseData[alf.CLOSE]/baseData[alf.OPEN] - 1)    # 当天 开盘到收盘 收益
             baseData['CORet'] = ((1 + baseData['CCRet'])/(1 + baseData['OCRet']) - 1)  # 当日开盘 到 前一日收盘 收益
-            baseData['NOTRADE'] = baseData[t.TRDSTAT].isin([5, 6])
-            baseData['ISST'] = baseData[t.STSTAT]
+            baseData['NOTRADE'] = baseData[alf.TRDSTAT].isin([5, 6])
+            baseData['ISST'] = baseData[alf.STSTAT]
             baseData['COLIMITUP'] = (baseData['CORet'] >= 0.099) & (~baseData['ISST']) | (baseData['CORet'] >= 0.049) & (baseData['ISST'])     # 开盘涨停
             baseData['COLIMITDOWN'] = (baseData['CORet'] <= -0.099) & (~baseData['ISST']) | (baseData['CORet'] <= -0.049) & (baseData['ISST'])  # 开盘跌停
             baseData['CCLIMITUP'] = (baseData['CCRet'] >= 0.099) & (~baseData['ISST']) | (baseData['CORet'] >= 0.049) & (baseData['ISST'])  # 收盘涨停
             baseData['CCLIMITDOWN'] = (baseData['CCRet'] <= -0.099) & (~baseData['ISST']) | (baseData['CCRet'] <= -0.049) & (baseData['ISST'])  # 收盘跌停
-            baseData.sort_values(by=[t.DATE, t.STKCD], inplace=True)
+            baseData.sort_values(by=[alf.DATE, alf.STKCD], inplace=True)
             filterColumns = ['OCRet', 'CORet', 'CCRet', 'NOTRADE', 'ISST', 'COLIMITUP', 'COLIMITDOWN', 'CCLIMITUP', 'CCLIMITDOWN']
+            baseData = baseData.loc[:, filterColumns]
+            # type Dict
             filterTypes = {col : sqltp.BOOLEAN for col in filterColumns[3:]}
             filterTypes['OCRet'] = sqltp.FLOAT
             filterTypes['CORet'] = sqltp.FLOAT
             filterTypes['CCRet'] = sqltp.FLOAT
-            filterTypes[t.DATE] = sqltp.VARCHAR(8)
-            filterTypes[t.STKCD] = sqltp.VARCHAR(40)
-            dataShape = baseData.shape
-            try:    # 写入数据库
-                self.logger.info('{0} writing Response Filter into database , {1} rows and {2} cols to write...'
-                                 .format(funcName, dataShape[0], dataShape[1]))
-                pd.io.sql.to_sql(baseData.loc[:, filterColumns],
-                                 name=tableName,
-                                 con=self.connMysqlWrite,
-                                 if_exists='append',
-                                 chunksize=2000,
-                                 dtype=filterTypes)
-                self.logger.info('{0} : Response Filter updated, with {1} rows and {2} cols'
-                                 .format(funcName, dataShape[0], dataShape[1]))
-            except Exception as e:
-                if lastUpdt == 0:
-                    mysqlCursor.execute('DROP TABLE {}'.format(tableName))
-                else:
-                    mysqlCursor.execute('DELETE FROM {0} WHERE {1}>{2}'.format(tableName, t.DATE, lastUpdt))        # 清理不能包含 lastupdt
-                self.connMysqlRead.commit()
-                self.logger.error('{0} : update failed, table cleaned'.format(funcName))
-                raise e
+            filterTypes[alf.DATE] = sqltp.VARCHAR(8)
+            filterTypes[alf.STKCD] = sqltp.VARCHAR(40)
+            # 存储数据
+            self.dataConnector.store_table(tableData=baseData,
+                                           tableName=tableName,
+                                           if_exist='append',
+                                           isH5=updateH5,
+                                           typeDict=filterTypes)
         else:
             self.logger.info('{0} : no new data to update, last update {1}'.format(funcName, lastUpdt))
-        print(time.time() - s)
 
-
-    def update_h5_files(self):
-        """
-        更新需要的 h5 数据
-        :return:
-        """
-        pass
 
 
 if __name__=='__main__':
     obj = BaseDataProcessor()
-    obj.update_stock_count()
-    obj.update_features_filter()
-    obj.update_response_filter()
+    obj.update_stock_count(updateH5=True)
+    obj.update_stock_count(updateH5=False)
+    obj.update_features_filter(updateH5=True)
+    obj.update_features_filter(updateH5=False)
+    obj.update_response_filter(updateH5=True)
+    obj.update_response_filter(updateH5=False)
