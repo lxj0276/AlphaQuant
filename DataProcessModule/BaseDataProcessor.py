@@ -1,27 +1,18 @@
 # coding=utf8
 __author__ = 'wangjp'
 
-import re
 import os
 import sys
 import time
-import datetime as dt
 
 import numpy as np
 import pandas as pd
-import configparser as cp
-
-import mysql.connector
-from sqlalchemy import create_engine
-import sqlalchemy.types as sqltp
-import pymysql
-pymysql.install_as_MySQLdb()
 
 from HelpModules.Logger import Logger
 from HelpModules.Calendar import Calendar
 from HelpModules.DataConnector import DataConnector
 from DataReaderModule.DataReader import DataReader
-from DataReaderModule.Constants import DatabaseNames, rootPath
+from DataReaderModule.Constants import rootPath
 from DataReaderModule.Constants import ALIAS_TABLES as alt
 from DataReaderModule.Constants import ALIAS_FIELDS as alf
 from DataReaderModule.Constants import ALIAS_STATUS as als

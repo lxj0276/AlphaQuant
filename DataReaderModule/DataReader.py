@@ -36,6 +36,8 @@ class DataReader:
         if basePath is None:
             basePath = os.path.join(rootPath,'DataReaderModule')
         cfp = cp.ConfigParser()
+        cfp.read(os.path.join(basePath,'configs','dataPath.ini'))
+        self.h5Path = cfp.get('data', 'h5')
         cfp.read(os.path.join(basePath,'configs', 'loginInfo.ini'))
         loginfoMysql = dict(cfp.items('Mysql'))
         self.connMysqlRead = mysql.connector.connect(user=loginfoMysql['user'],
@@ -103,7 +105,8 @@ class DataReader:
                  selectType='CloseClose',
                  tableName=None,
                  dbName=None,
-                 useCache=True):
+                 useCache=True,
+                 fromMysql=False):
         """
         从数据库中读取信息 包括基础数据 以及 因子数据 含头 含尾
         :param headDate
@@ -123,7 +126,6 @@ class DataReader:
             tailDate = self.calendar._tradeDates[-1] if tailDate is None else str(tailDate)
         else:
             dateList = self.calendar.tdaysoffset(num=0, currDates=dateList)     # 将 输入日期 校准到 交易日
-        mysqlCursor = self.connMysqlRead.cursor()
         indexFields = [alf.DATE, alf.STKCD]
         # 检查需要提取的字段 是否存在 本地数据库没有的字段
         fieldsByTable = self.fields_check(fields=fields, checkRemote=self.connectRemote)
@@ -139,7 +141,7 @@ class DataReader:
                 if table=='NON_LOCAL':  # 非本地已存储数据
                     raise NotImplementedError
                 else:
-                    if table in self.cacheManager._tableSaved:      # 该表 已经被缓存
+                    if table in self.cacheManager._tableSaved:      # 该表 (部分或全部字段) 已经被缓存
                         cachedFields = [fld for fld in fieldsByTable[table] if fld in self.cacheManager._fieldsSaved[table]]
                         unCachedFields = [fld for fld in fieldsByTable[table] if fld not in self.cacheManager._fieldsSaved[table]]
                     else:
@@ -156,7 +158,7 @@ class DataReader:
                         dateSlice = slice(None)
                         dateList = self.calendar.tdaysbetween(headDate=headDate, tailDate=tailDate)
                     cachedIdx = (dateSlice,slice(None)) if stkList is None else (dateSlice, stkList)
-                    cachedData = self.cacheManager._tableSaved[table].loc[cachedIdx, cachedFields]    # 不存在的日期将不会被取出, 需要优化 ！！！！
+                    cachedData = self.cacheManager._tableSaved[table].loc[cachedIdx, cachedFields]    # 不存在的日期将不会被取出
                     # 检查 需要提取的 字段 缓存的日期情况
                     partialFields = []
                     for fld in cachedFields:
@@ -177,13 +179,24 @@ class DataReader:
                                        'tdt': alf.DATE,
                                        'stk': alf.STKCD,
                                        'dates': ','.join(extraDates),
-                                       'stkcd': '' if stkList is None else 'AND ({0} IN ({1}))'.format(alf.STKCD, ','.join(stkListStr)),
+                                       'stkcds': ','.join(stkListStr) if stkList is not None else None,
+                                       'stkcdLine': '' if stkList is None else 'AND ({0} IN ({1}))'.format(alf.STKCD, ','.join(stkListStr)),
                                        }
-                            sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE {tdt} IN ({dates}) {stkcd}'.format(**keyDict)
-                            # mysqlCursor.execute(sqlLines)
-                            # extraFieldData = pd.DataFrame(mysqlCursor.fetchall(), columns=takeFields)
-                            # extraFieldData.set_index(indexFields, inplace=True)
-                            extraFieldData = pd.read_sql(sql=sqlLines, con=self.connMysqlRead, index_col=indexFields, columns=takeFields)
+                            if fromMysql:
+                                sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE {tdt} IN ({dates}) {stkcdLine}'.format(**keyDict)
+                                extraFieldData = pd.read_sql(sql=sqlLines,
+                                                             con=self.connMysqlRead,
+                                                             index_col=indexFields,
+                                                             columns=takeFields)
+                            else:
+                                h5File = os.path.join(self.h5Path, '{}.h5'.format(table))
+                                whereLines = ''.join(['{tdt} in ({dates})'.format(**keyDict),
+                                                      '' if stkList is None else 'and {stk} in ({stkcds})'.format(**keyDict)])
+                                extraFieldData = pd.read_hdf(path_or_buf=h5File,
+                                                             key=table,
+                                                             where=whereLines,
+                                                             columns=takeFields,
+                                                             mode='r')
                             addedFieldData = extraFieldData
                         if partialDates.shape[0]>0:
                             #### 需要提取部分股票的日期 ###
@@ -196,15 +209,23 @@ class DataReader:
                                        'tdt': alf.DATE,
                                        'stk': alf.STKCD,
                                        'dates': ','.join(partialDates),
-                                       'stkcd': 'AND ({0} NOT IN ({1}))' if stkList is None else 'AND ({2} IN ({3}))'
+                                       'stkcds': ','.join(stkListStr) if stkList is not None else None,
+                                       'stkcdLine': 'AND ({0} NOT IN ({1}))' if stkList is None else 'AND ({2} IN ({3}))'
                                            .format(alf.STKCD, ','.join(partialStocks),alf.STKCD,','.join(needStksStr)),
                                        }
-                            sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE {tdt} IN ({dates}) {stkcd}'.format(**keyDict)
-                            # mysqlCursor.execute(sqlLines)
-                            # partialStockData = pd.DataFrame(mysqlCursor.fetchall(), columns=takeFields)
-                            # partialStockData.set_index(indexFields, inplace=True)
-                            partialStockData = pd.read_sql(sql=sqlLines, con=self.connMysqlRead, columns=fields, index_col=indexFields)
-                            addedFieldData = partialStocks if addedFieldData.empty else pd.concat([addedFieldData, partialStockData], axis=0, sort=False)
+                            if fromMysql:
+                                sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE {tdt} IN ({dates}) {stkcdLine}'.format(**keyDict)
+                                partialStockData = pd.read_sql(sql=sqlLines, con=self.connMysqlRead, columns=fields, index_col=indexFields)
+                            else:
+                                h5File = os.path.join(self.h5Path, '{}.h5'.format(table))
+                                whereLines = ''.join(['{tdt} in ({dates})'.format(**keyDict),
+                                                      '' if stkList is None else 'and {stk} in ({stkcds})'.format(**keyDict)])
+                                partialStockData = pd.read_hdf(path_or_buf=h5File,
+                                                               key=table,
+                                                               where=whereLines,
+                                                               columns=takeFields,
+                                                               mode='r')
+                            addedFieldData = partialStockData if addedFieldData.empty else pd.concat([addedFieldData, partialStockData], axis=0, sort=False)
                         if not addedFieldData.empty:   # 缓存字段不足，有新数据需要写入
                             if not partialFields: # 第一次拼接, 直接把需要的 index 加满
                                 cachedData = pd.concat([cachedData, addedFieldData], axis=0, sort=False)
@@ -225,21 +246,37 @@ class DataReader:
                                'dbname': dbName,
                                'table': '_'.join([table,'quick']) if table not in NO_QUICK else table,
                                'tdt': alf.DATE,
+                               'stk': alf.STKCD,
                                'head': headDate,
                                'tail': tailDate,
                                'dates': '' if dateList is None else ','.join(dateList),
-                               'stkcd': '' if stkList is None else 'AND ({0} IN ({1}))'.format(alf.STKCD, ','.join(stkListStr)),
-                               'signhead': '>=' if selectType in ('CloseClose','CloseOpen') else '>',
+                               'stkcds': ','.join(stkListStr) if stkList is not None else None,
+                               'stkcdLine': '' if stkList is None else 'AND ({0} IN ({1}))'.format(alf.STKCD, ','.join(stkListStr)),
+                               'signhead': '>=' if selectType in ('CloseClose', 'CloseOpen') else '>',
                                'signtail': '<=' if selectType in ('OpenClose', 'CloseClose') else '<',
                                }
-                    if dateList is not None:    # 通过 dateList 提取
-                        sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE ({tdt} IN ({dates})) {stkcd}'.format(**keyDict)
-                    else:       #通过 headDate to tailDate 提取
-                        sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE {tdt}{signhead}{head} AND {tdt}{signtail}{tail} {stkcd}'.format(**keyDict)
-                    # mysqlCursor.execute(sqlLines)
-                    # newData = pd.DataFrame(mysqlCursor.fetchall(), columns=unCachedFields)
-                    # newData.set_index(indexFields, inplace=True)
-                    newData = pd.read_sql(sql=sqlLines,con=self.connMysqlRead,columns=unCachedFields,index_col=indexFields)
+                    if fromMysql:
+                        if dateList is not None:    # 通过 dateList 提取
+                            sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE ({tdt} IN ({dates})) {stkcdLine}'.format(**keyDict)
+                        else:       #通过 headDate to tailDate 提取
+                            sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE {tdt}{signhead}{head} AND {tdt}{signtail}{tail} {stkcdLine}'.format(**keyDict)
+                        newData = pd.read_sql(sql=sqlLines,
+                                              con=self.connMysqlRead,
+                                              columns=unCachedFields,
+                                              index_col=indexFields)
+                    else:
+                        h5File = os.path.join(self.h5Path, '{}.h5'.format(table))
+                        if dateList is not None:
+                            whereLines = ''.join(['{tdt} in ({dates})'.format(**keyDict),
+                                                  '' if stkList is None else 'and {stk} in ({stkcds})'.format(**keyDict)])
+                        else:
+                            whereLines = ''.join(['{tdt}{signhead}"{head}" and {tdt}{signtail}"{tail}"'.format(**keyDict),
+                                                  '' if stkList is None else 'and {stk} in ({stkcds})'.format(**keyDict)])
+                        newData = pd.read_hdf(path_or_buf=h5File,
+                                              key=table,
+                                              where=whereLines,
+                                              columns=unCachedFields,
+                                              mode='r')
                     if useCache:
                         self.cacheManager.checkinCache(tableName=table, tableData=newData)     # 数据库取出的数据加缓存
                     outData = newData if outData.empty else outData.join(other=newData, on=indexFields)
@@ -249,17 +286,6 @@ class DataReader:
                                      .format(table, dataShape[0], dataShape[1], time.time() - start))
                 self.logger.info('Table {0} : fields {1} loaded'.format(table, ','.join(fieldsByTable[table])))
         return outData
-
-    def get_data_h5(self,
-                    headDate=None,
-                    tailDate=None,
-                    dateList=None,
-                    stkList=None,
-                    fields=None,
-                    selectType='CloseClose',
-                    tableName=None,
-                    fileName=None):
-        pass
 
     def get_responses(self,
                       headDate=None,
@@ -390,23 +416,33 @@ class DataReader:
 
 if __name__=='__main__':
     obj = DataReader()
-    # obj.fields_check(fields=['S_DQ_OPEN','S_DQ_HIGH','S_DQ_LOW', 'FLOAT_SHR','PERS_HOLDERS','INST_HOLDERS','miss'])
-    # obj.get_data(headDate=20180101,
-    #                  tailDate=None,
-    #                  stkList=['000001.SZ','000002.SZ','000004.SZ'],
-    #                  fields=[alf.OPEN,alf.HIGH,alf.LOW],
-    #                  tableName=None,
-    #                  dbName=None)
-    #
-    # t = obj.get_data(headDate=20170901,
-    #                  tailDate=20180301,
-    #                  stkList=['000002.SZ','000003.SZ','000004.SZ'],
-    #                  fields=[alf.OPEN,alf.HIGH,alf.CLOSE],
-    #                  tableName=None,
-    #                  dbName=None)
-    # print(t)
 
-    t = obj.get_responses(headDate=20170801,
-                          tailDate=20180201,
-                          retTypes={'OC': [1], 'CC': [2], })
-    print(t)
+    t = obj.get_data(headDate=None,
+                     tailDate=None,
+                     stkList=['000001.SZ','000002.SZ','000004.SZ'],
+                     fields=[alf.OPEN,alf.HIGH,alf.LOW],
+                     tableName=None,
+                     dbName=None)
+
+    print(t.shape)
+    #
+    # t1 = obj.get_data(headDate=20170901,
+    #                   tailDate=20180301,
+    #                   stkList=['000002.SZ','000003.SZ','000004.SZ'],
+    #                   fields=[alf.OPEN,alf.HIGH,alf.CLOSE],
+    #                   tableName=None,
+    #                   dbName=None,
+    #                   fromMysql=False)
+    # t2 = obj.get_data(headDate=20170901,
+    #                   tailDate=20180301,
+    #                   stkList=['000002.SZ','000003.SZ','000004.SZ'],
+    #                   fields=[alf.OPEN,alf.HIGH,alf.CLOSE],
+    #                   tableName=None,
+    #                   dbName=None,
+    #                   fromMysql=True)
+    # print(t1-t2)
+
+    # t = obj.get_responses(headDate=20170801,
+    #                       tailDate=20180201,
+    #                       retTypes={'OC': [1], 'CC': [2], })
+    # print(t)

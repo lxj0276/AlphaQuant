@@ -10,28 +10,18 @@ import re
 import os
 
 
-c = os.system('copy test.h5 test1.h5')
-print(c)
-
-raise
-
 s = time.time()
 b = pd.DataFrame({'a':range(10),'b':range(1,11),'c':range(10)})
 b.set_index(['a','b'], inplace=True)
-# print(b)
+print(b)
 
 # b.to_hdf('test.h5',key='test',mode='a',format='table')
 
-with pd.HDFStore('D:\AlphaQuant\data\ASHAREFLOATHOLDER.h5') as h5:
-    info=h5.info()
-    t=h5.select('ASHAREFLOATHOLDER',start=825110)
-    print(info)
-    m = re.search(r'nrows->(\d+)',info)
-    print(m.groups(0)[0])
-    # t=h5.select('test',where=['a in (1,2,3) and b==2'])
-    t = h5.select('test',where=['a==1'])
-    t = h5.select(key='test',start=9)
-    print()
+with pd.HDFStore('test.h5') as h5:
+    t=h5.select('test',where=['a in (1,2,3) and b==2'])
+    # t = h5.select('test',where=['a==1'])
+    # t = h5.select(key='test',start=9)
+    print(t)
 
 
 raise
