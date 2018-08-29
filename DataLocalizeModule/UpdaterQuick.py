@@ -121,6 +121,8 @@ class UpdaterQuick:
         newAvailableDate = self.dataConnector.get_last_available(fast=True)
         # 再更新需要拼接的表格
         for table in quickTableDict:
+            if table.upper()=='ASHARECAPITALIZATION':
+                continue
             tableName = table if updateH5 else '_'.join([table, 'quick'])
             # 读取现存的最近更新日期
             lastUpdate = self.dataConnector.get_last_update(tableName=tableName, isH5=updateH5)
@@ -190,6 +192,6 @@ class UpdaterQuick:
 
 if __name__=='__main__':
     obj = UpdaterQuick()
+    obj.update_trade_info_h5()
     obj.update_quick_tables(updateH5=False)
     obj.update_quick_tables(updateH5=True)
-    obj.update_trade_info_h5()

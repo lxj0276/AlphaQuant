@@ -7,6 +7,7 @@ import time
 
 import numpy as np
 import pandas as pd
+import sqlalchemy.types as sqltp
 
 from HelpModules.Logger import Logger
 from HelpModules.Calendar import Calendar
@@ -103,7 +104,7 @@ class BaseDataProcessor:
             # 计算 filter
             baseData[als.NOTRD] = baseData[alf.TRDSTAT].isin([5, 6])   # 当日 停牌
             baseData[als.PNOTRD] = baseData[alf.TRDSTAT].groupby(level=alf.STKCD).shift(1).isin([5, 6])  # 前一日停牌
-            baseData[als.ISST] = baseData[alf.STSTAT]                   # 当日 ST
+            baseData[als.ISST] = baseData[alf.STSTAT]==1                   # 当日 ST
             baseData[als.LMUP] = baseData[alf.PCTCHG]>=0.099         # 当日 涨停
             baseData[als.LMDW] = baseData[alf.PCTCHG]<=-0.099      # 当日 跌停
             baseData[als.INSFAMT] = baseData[alf.AMOUNT]<=20000000/1000      # 当日 成交额不足两千万 成交额 单位：千元
@@ -139,6 +140,7 @@ class BaseDataProcessor:
                                            if_exist='append',
                                            isH5=updateH5,
                                            typeDict=filterTypes)
+            self.logger.info('{0} : updated from {1} to {2}'.format(funcName, lastUpdt, availableDate))
         else:
             self.logger.info('{0} : No new data to update, last update {1}'.format(funcName, lastUpdt))
 
@@ -178,7 +180,7 @@ class BaseDataProcessor:
             baseData['OCRet'] = (baseData[alf.CLOSE]/baseData[alf.OPEN] - 1)    # 当天 开盘到收盘 收益
             baseData['CORet'] = ((1 + baseData['CCRet'])/(1 + baseData['OCRet']) - 1)  # 当日开盘 到 前一日收盘 收益
             baseData['NOTRADE'] = baseData[alf.TRDSTAT].isin([5, 6])
-            baseData['ISST'] = baseData[alf.STSTAT]
+            baseData['ISST'] = baseData[alf.STSTAT]==1
             baseData['COLIMITUP'] = (baseData['CORet'] >= 0.099) & (~baseData['ISST']) | (baseData['CORet'] >= 0.049) & (baseData['ISST'])     # 开盘涨停
             baseData['COLIMITDOWN'] = (baseData['CORet'] <= -0.099) & (~baseData['ISST']) | (baseData['CORet'] <= -0.049) & (baseData['ISST'])  # 开盘跌停
             baseData['CCLIMITUP'] = (baseData['CCRet'] >= 0.099) & (~baseData['ISST']) | (baseData['CORet'] >= 0.049) & (baseData['ISST'])  # 收盘涨停
@@ -199,16 +201,55 @@ class BaseDataProcessor:
                                            if_exist='append',
                                            isH5=updateH5,
                                            typeDict=filterTypes)
+            self.logger.info('{0} : updated from {1} to {2}'.format(funcName, lastUpdt, availableDate))
+        else:
+            self.logger.info('{0} : no new data to update, last update {1}'.format(funcName, lastUpdt))
+
+    def update_response(self, updateH5=False):
+        """
+        更新收益率 日期对应的收益率为未来收益率
+        每次更新 需要修正之前的部分
+        :param updateH5:
+        :return:
+        """
+        funcName = sys._getframe().f_code.co_name
+        tableName = alt.RESPONSE
+        # 查看最新数据进度
+        availableDate = self.dataConnector.get_last_available(fast=True)
+        lastUpdt = self.dataConnector.get_last_update(tableName=tableName, isH5=updateH5)
+        # extract base data
+        if availableDate > str(lastUpdt):
+            cutDate = self.calendar.tdaysoffset(num=-10,currDates=lastUpdt)     # 需要更新已存储的 但是 不完整的部分数据
+            stockReturns = self.dataReader.get_responses(headDate=cutDate,
+                                                         tailDate=20020101,
+                                                         selectType='CloseClose' if lastUpdt==0 else 'OpenClose',
+                                                         retTypes={'OC': [1, 10], 'CC': [1]})
+            for gap in range(2, 6):  # 构建单日收益率 的 gap 2-5
+                stockReturns['OCDay1Gap{}'.format(gap)] = stockReturns[['OCDay1']].groupby(level=alf.STKCD, sort=False,
+                                                                                            as_index=False).shift(-gap)
+                stockReturns['CCDay1Gap{}'.format(gap)] = stockReturns[['CCDay1']].groupby(level=alf.STKCD, sort=False,
+                                                                                            as_index=False).shift(-gap)
+            # save data
+            filterTypes = {col : sqltp.Float for col in stockReturns.columns.values}
+            self.dataConnector.store_table(tableData=stockReturns,
+                                           tableName=tableName,
+                                           if_exist='append',
+                                           isH5=updateH5,
+                                           typeDict=filterTypes)
+            self.logger.info('{0} : updated from {1} to {2}'.format(funcName, lastUpdt, availableDate))
         else:
             self.logger.info('{0} : no new data to update, last update {1}'.format(funcName, lastUpdt))
 
 
-
 if __name__=='__main__':
     obj = BaseDataProcessor()
-    obj.update_stock_count(updateH5=True)
-    obj.update_stock_count(updateH5=False)
-    obj.update_features_filter(updateH5=True)
-    obj.update_features_filter(updateH5=False)
-    obj.update_response_filter(updateH5=True)
-    obj.update_response_filter(updateH5=False)
+
+    # obj.update_stock_count(updateH5=False)
+    # obj.update_features_filter(updateH5=False)
+    # obj.update_response_filter(updateH5=False)
+    #
+    # obj.update_stock_count(updateH5=True)
+    # obj.update_features_filter(updateH5=True)
+    # obj.update_response_filter(updateH5=True)
+
+    obj.update_response(updateH5=True)

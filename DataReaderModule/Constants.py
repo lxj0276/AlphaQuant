@@ -12,6 +12,7 @@ class ALIAS_TABLES:         # 表名标记
     DAILYCNT = 'daily_stocks_count'
     XFILTER = 'FEATURES_FILTER'
     YFILTER = 'RESPONSE_FILTER'
+    RESPONSE = 'RESPONSE'
     TRAEDINFO = 'ASHAREEODPRICES'
 
 class ALIAS_FIELDS:         # 基础数据字段标记

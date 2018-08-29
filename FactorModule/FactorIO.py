@@ -54,16 +54,16 @@ class FactorIO:
         factorStorePath = os.path.join(self.factorDataPath,factorName)
         if not os.path.exists(factorStorePath):
             os.mkdir(factorStorePath)
-        append = ifExist=='append'
-        h5 = pd.HDFStore(path=os.path.join(factorStorePath, 'factor_scores.h5'),
-                         mode='a' if append else 'w',
-                         complevel=4,
-                         complib='blosc')
         self.logger.info('updating factor {}...'.format(factorName))
         for fctSC in factorScores:
             scoreType = fctSC.split('_')[-1]
-            h5.put(key=scoreType, value=factorScores[fctSC], format='table', append=append)
-            print(fctSC,' updated')
+            factorScores[fctSC].to_hdf(path_or_buf=os.path.join(factorStorePath, 'factor_scores.h5'),
+                                       key=scoreType,
+                                       mode='w' if ifExist == 'replace' else 'a',
+                                       format='table',
+                                       append=True,
+                                       complevel=4)
+            print(fctSC, ' updated')
         self.logger.info('factor {0} updated with {1} seconds'.format(factorName, time.time() - start))
 
     def read_factor_indicators(self):
@@ -79,13 +79,13 @@ class FactorIO:
         factorStorePath = os.path.join(self.factorDataPath,factorName)
         if not os.path.exists(factorStorePath):
             os.mkdir(factorStorePath)
-        append = ifExist=='append'
-        h5 = pd.HDFStore(path=os.path.join(factorStorePath, 'factor_indicators.h5'),
-                         mode='a' if append else 'w',
-                         complevel=4,
-                         complib='blosc')
         self.logger.info('updating factor {}...'.format(factorName))
         for indType in factorIndicators:
-            h5.put(key=indType, value=factorIndicators[indType], format='table', append=append)
+            factorIndicators[indType].to_hdf(path_or_buf=os.path.join(factorStorePath, 'factor_indicators.h5'),
+                                             key=indType,
+                                             mode='w' if ifExist == 'replace' else 'a',
+                                             format='table',
+                                             append=True,
+                                             complevel=4)
             print(indType,' updated')
         self.logger.info('factor {0} updated with {1} seconds'.format(factorName, time.time() - start))

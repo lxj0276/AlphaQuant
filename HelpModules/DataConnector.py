@@ -137,6 +137,7 @@ class DataConnector:
                                  append=True,
                                  complevel=4)
             except BaseException as e:      # 更新数据失败 清理未完成数据
+                print('rolling back')
                 reset = os.system('COPY {0} {1} /Y'.format(h5BackupFile, h5File)) if hasTable else os.system('DEL {}'.format(h5File))
                 assert reset==0
                 self.logger.error('{funcName} : Table {tableName} update Failed and Reset'.format(**formatDict))
@@ -164,6 +165,15 @@ class DataConnector:
         formatDict['timeUsed'] = time.time() - start
         self.logger.info('{funcName} : Table {tableName} updated of shape ({shape0},{shape1}), with {timeUsed} seconds'.format(**formatDict))
 
+    def change_table(self,changeData, tableName, isH5=False):
+        """
+        修改现有数据表
+        :param changeData:  用来替代现有数据的数据表，其index必须全部 包含于 已有数据
+        :param tableName:
+        :param isH5:
+        :return:
+        """
+        pass
 
     def check_table(self, tableName):
         pass

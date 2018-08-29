@@ -173,6 +173,8 @@ class DataReader:
                         addedFieldData = pd.DataFrame([], columns=[fld])    # 该字段所需提取的 缓存额外的 数据
                         if extraDates:
                             ####  需要提取全部股票的日期 #####
+                            if not fromMysql:
+                                extraDates = ['"{}"'.format(tdt) for tdt in extraDates]
                             keyDict = {'fields': ','.join(takeFields),
                                        'dbname': dbName,
                                        'table':  '_'.join([table,'quick']) if table not in NO_QUICK else table,
@@ -203,6 +205,8 @@ class DataReader:
                             partialStocks = list(set([pair[1] for pair in self.cacheManager._fieldsIndex[table][fld] if
                                                       pair[0] in partialDates]))  # 已经缓存的那部分股票
                             needStksStr = ['"{}"'.format(stk) for stk in (set(stkList) - set(partialStocks))]
+                            if not fromMysql:
+                                partialDates = ['"{}"'.format(tdt) for tdt in partialDates]
                             keyDict = {'fields': ','.join(takeFields),
                                        'dbname': dbName,
                                        'table':  '_'.join([table,'quick']) if table not in NO_QUICK else table,
@@ -242,6 +246,8 @@ class DataReader:
                 if unCachedFields:   # 需要从数据库读取的字段
                     start = time.time()
                     unCachedFields = indexFields + unCachedFields
+                    if not fromMysql:
+                        dateList = ['"{}"'.format(tdt) for tdt in dateList] if dateList is not None else None
                     keyDict = {'fields': ','.join(unCachedFields),
                                'dbname': dbName,
                                'table': '_'.join([table,'quick']) if table not in NO_QUICK else table,

@@ -47,7 +47,7 @@ class FactorBase:
         """
         # put the generator here
 
-        self.tailDate=20010101
+        # self.tailDate=20010101
         start = time.time()
         # 提取需要的数据
         self.needData = self.dataReader.get_data(fields=self.needFields,
