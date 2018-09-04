@@ -14,7 +14,8 @@ from sqlalchemy import create_engine
 import pymysql
 pymysql.install_as_MySQLdb()
 
-from DataReaderModule.Constants import ALIAS_FIELDS,ALIAS_TABLES,DatabaseNames,rootPath
+from DataReaderModule.Constants import ALIAS_TABLES,DatabaseNames,rootPath
+from DataReaderModule.Constants import ALIAS_FIELDS as alf
 
 
 class DataConnector:
@@ -70,7 +71,7 @@ class DataConnector:
         funcName = sys._getframe().f_code.co_name
         cursor = self.connMysqlRead.cursor()
         if fast:
-            cursor.execute('SELECT MAX({0}) FROM {1}'.format(ALIAS_FIELDS.DATE, ALIAS_TABLES.TRDDATES))  # 通过日期表查询 速度较快
+            cursor.execute('SELECT MAX({0}) FROM {1}'.format(alf.DATE, ALIAS_TABLES.TRDDATES))  # 通过日期表查询 速度较快
         else:
             cursor.execute('SELECT MAX(TRADE_DT) FROM ASHAREEODPRICES')
         newAvailableDate = cursor.fetchall()[0][0]
@@ -173,7 +174,26 @@ class DataConnector:
         :param isH5:
         :return:
         """
-        pass
+        funcName = sys._getframe().f_code.co_name
+        changeData.reset_index(inplace=True)
+        dataColumns = changeData.columns.values
+        self.logger.info('{0}: {1} obs to change in table {2} ...'.format(funcName, changeData.shape[0], tableName))
+        if isH5:
+            h5File = os.path.join(self.h5Path, '{}.h5'.format(tableName))
+            h5UpdateFile = os.path.join(self.h5Backup, '{}.h5'.format(tableName))
+        else:
+            for dumi in range(changeData.shape[0]):
+                row = changeData.iloc[dumi]
+                formatDict = {col:row[col] for col in dataColumns}
+                formatDict['table'] = tableName
+                formatDict['date'] = row[alf.DATE]
+                formatDict['stkcd'] = row[alf.STKCD]
+                formatDict['setstr'] = ','.join(['{0}={{1}}'.format(col) for col in dataColumns])
+                sql = 'UPDATE {table} SET {setstr} WHERE S_INFO_WINDCODE="{stkcd}" AND TRADE_DT={date}'. format(**formatDict)
+                self.connMysqlRead.cursor().execute(sql)
+            self.connMysqlRead.commit()
+        self.logger.info('{0}: {1} obs changed in table {2}'.format(funcName, changeData.shape[0], tableName))
+
 
     def check_table(self, tableName):
         pass

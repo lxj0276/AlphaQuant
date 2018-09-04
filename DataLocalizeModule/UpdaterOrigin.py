@@ -137,58 +137,95 @@ class UpdaterOrigin:
         start = time.time()
         funcName = sys._getframe().f_code.co_name
         dbName = DatabaseNames.MysqlDaily if dbName is None else dbName
-        tableName = 'AShareEODPrices'
+        tableName = 'ASHAREEODPRICES'
         mysqlCursor = self.connMysqlRead.cursor()
         mysqlCursor.execute('USE {}'.format(dbName))
+        windCursor = self.connWind.cursor()
+        # 提取 wind 数据库 最新数据
+        windCursor.execute('SELECT MAX(TRADE_DT) FROM {0}.{1}'.format(WPFX, tableName))
+        newAvailable = windCursor.fetchall()[0][0]
         # dict to map
         statDict = {'交易': 0, 'XR': 1, 'XD': 2, 'DR': 3, 'N': 4, '停牌': 5, np.nan: 6, }
         if self.has_table(tableName=tableName, dbName=dbName):
             mysqlCursor.execute('SELECT MAX(TRADE_DT) FROM {}'.format(tableName))
-            latestDate = [adt[0] for adt in mysqlCursor.fetchall()][-1]
-        else:
-            self.logger.info('{0} : table {1} does not exist in db {2}, will be created from local file'.
-                             format(funcName,tableName,dbName))
-            # 从本地文件读入
-            tradeInfo = pd.read_csv(r'.\tradeData.csv', encoding='gbk')
-            tradeInfo.sort_values(by=['TRADE_DT', 'S_INFO_WINDCODE'], inplace=True)
-            tradeInfo.set_index(['TRADE_DT', 'S_INFO_WINDCODE'], inplace=True)
-            tradeInfo['S_DQ_PCTCHANGE'] = tradeInfo['S_DQ_PCTCHANGE'] / 100
-            tradeInfo['S_DQ_TRADESTATUS'] = tradeInfo['S_DQ_TRADESTATUS'].map(statDict)
-            pd.io.sql.to_sql(tradeInfo,
-                             name=tableName,
-                             con=self.connMysqlWrite,
-                             if_exists='replace',
-                             chunksize=2000,
-                             dtype=FieldTypeDict)
-            # 重新提取最近更新日期
-            mysqlCursor.execute('SELECT MAX(TRADE_DT) FROM {}'.format(tableName))
             latestDate = mysqlCursor.fetchall()[0][0]
+        else:
+            # self.logger.info('{0} : table {1} does not exist in db {2}, will be created from local file'.
+            #                  format(funcName,tableName,dbName))
+            # # 从本地文件读入
+            # tradeInfo = pd.read_csv(r'.\tradeData.csv', encoding='gbk')
+            # tradeInfo.sort_values(by=['TRADE_DT', 'S_INFO_WINDCODE'], inplace=True)
+            # tradeInfo.set_index(['TRADE_DT', 'S_INFO_WINDCODE'], inplace=True)
+            # tradeInfo['S_DQ_PCTCHANGE'] = tradeInfo['S_DQ_PCTCHANGE'] / 100
+            # tradeInfo['S_DQ_TRADESTATUS'] = tradeInfo['S_DQ_TRADESTATUS'].map(statDict)
+            # pd.io.sql.to_sql(tradeInfo,
+            #                  name=tableName,
+            #                  con=self.connMysqlWrite,
+            #                  if_exists='replace',
+            #                  chunksize=2000,
+            #                  dtype=FieldTypeDict)
+            # # 重新提取最近更新日期
+            # mysqlCursor.execute('SELECT MAX(TRADE_DT) FROM {}'.format(tableName))
+            # latestDate = mysqlCursor.fetchall()[0][0]
+            latestDate = 0
+            self.logger.info('{0} : table {1} does not exist, will be created'.format(funcName, tableName))
+        self.logger.info('{0} : last update for table {1} : {2}'.format(funcName, tableName, latestDate))
         #### 读取交易数据
-        fields = ['S_INFO_WINDCODE','TRADE_DT','S_DQ_OPEN','S_DQ_HIGH','S_DQ_LOW','S_DQ_CLOSE','S_DQ_PCTCHANGE','S_DQ_VOLUME','S_DQ_AMOUNT','S_DQ_TRADESTATUS']
-        windCursor = self.connWind.cursor()
-        updateSQL = 'SELECT {0} FROM {1}.{2} WHERE TRADE_DT>{3}'.format(','.join(fields), WPFX, tableName, latestDate)
-        windCursor.execute(updateSQL)
-        tradeInfo = pd.DataFrame(windCursor.fetchall(), columns=fields)
-        if not tradeInfo.empty:
-            tradeInfo.sort_values(by=['TRADE_DT','S_INFO_WINDCODE'],inplace=True)
-            tradeInfo.set_index(['TRADE_DT', 'S_INFO_WINDCODE'], inplace=True)
-            tradeInfo['S_DQ_PCTCHANGE'] = tradeInfo['S_DQ_PCTCHANGE']/100
-            tradeInfo['S_DQ_TRADESTATUS'] = tradeInfo['S_DQ_TRADESTATUS'].map(statDict)
-            try:
-                print('{0} : {1} obs to update'.format(funcName, tradeInfo.shape[0]))
-                pd.io.sql.to_sql(tradeInfo,
-                                 name=tableName,
-                                 con=self.connMysqlWrite,
-                                 if_exists='append',
-                                 chunksize=2000,
-                                 dtype=FieldTypeDict)
-                self.logger.info('{0} : {1} obs updated with {2} seconds'
-                                 .format(funcName, tradeInfo.shape[0], time.time() - start))
-            except BaseException as e:
-                mysqlCursor.execute('DELETE FROM {0} WHERE TRADE_DT>{1}'.format(tableName, latestDate))
-                self.connMysqlRead.commit()
-                self.logger.error('{0} : update failed， table cleaned'.format(funcName))
-                raise e
+        if newAvailable > str(latestDate):
+            fields = ['S_INFO_WINDCODE', 'TRADE_DT', 'S_DQ_OPEN', 'S_DQ_HIGH', 'S_DQ_LOW', 'S_DQ_CLOSE',
+                      'S_DQ_PCTCHANGE', 'S_DQ_VOLUME', 'S_DQ_AMOUNT', 'S_DQ_TRADESTATUS', 'S_DQ_ADJFACTOR']
+            if latestDate==0:       # 分次写入
+                self.logger.info('Sepatedly updating ASHAREEODPRICES ...')
+                cutDates = [latestDate, 20050101, 20100101, 20150101, 20180830]
+                for dumi in range(1, len(cutDates)):
+                    updateSQL = 'SELECT {0} FROM {1}.{2} WHERE TRADE_DT>={3} AND TRADE_DT<{4}'\
+                        .format(','.join(fields), WPFX, tableName,cutDates[dumi-1], cutDates[dumi])
+                    tradeInfo = pd.read_sql(sql=updateSQL, con=self.connWind)
+                    tradeInfo.sort_values(by=['TRADE_DT', 'S_INFO_WINDCODE'], inplace=True)
+                    tradeInfo.set_index(['TRADE_DT', 'S_INFO_WINDCODE'], inplace=True)
+                    tradeInfo['S_DQ_PCTCHANGE'] = tradeInfo['S_DQ_PCTCHANGE'] / 100
+                    tradeInfo['S_DQ_TRADESTATUS'] = tradeInfo['S_DQ_TRADESTATUS'].map(statDict)
+                    try:
+                        print('{0} : {1} obs to update'.format(funcName, tradeInfo.shape[0]))
+                        pd.io.sql.to_sql(tradeInfo,
+                                         name=tableName,
+                                         con=self.connMysqlWrite,
+                                         if_exists='append' if dumi>1 else 'replace',
+                                         chunksize=2000,
+                                         dtype=FieldTypeDict)
+                        self.logger.info('{0} : {1} obs updated with from {2} to {3}'
+                                         .format(funcName, tradeInfo.shape[0], cutDates[dumi-1], cutDates[dumi] ))
+                    except BaseException as e:
+                        if dumi==1:
+                            mysqlCursor.execute('DROP TABLE {}'.format(tableName))
+                        else:
+                            mysqlCursor.execute('DELETE FROM {0} WHERE TRADE_DT>={1}'.format(tableName, cutDates[dumi-1]))
+                        self.connMysqlRead.commit()
+                        self.logger.error('{0} : update failed， table cleaned'.format(funcName))
+                        raise e
+            else:                   # 整体写入
+                self.logger.info('Whole updating ASHAREEODPRICES ...')
+                updateSQL = 'SELECT {0} FROM {1}.{2} WHERE TRADE_DT>{3}'.format(','.join(fields), WPFX, tableName, latestDate)
+                tradeInfo = pd.read_sql(sql = updateSQL, con=self.connWind)
+                tradeInfo.sort_values(by=['TRADE_DT','S_INFO_WINDCODE'],inplace=True)
+                tradeInfo.set_index(['TRADE_DT', 'S_INFO_WINDCODE'], inplace=True)
+                tradeInfo['S_DQ_PCTCHANGE'] = tradeInfo['S_DQ_PCTCHANGE']/100
+                tradeInfo['S_DQ_TRADESTATUS'] = tradeInfo['S_DQ_TRADESTATUS'].map(statDict)
+                try:
+                    print('{0} : {1} obs to update'.format(funcName, tradeInfo.shape[0]))
+                    pd.io.sql.to_sql(tradeInfo,
+                                     name=tableName,
+                                     con=self.connMysqlWrite,
+                                     if_exists='append',
+                                     chunksize=2000,
+                                     dtype=FieldTypeDict)
+                    self.logger.info('{0} : {1} obs updated with {2} seconds'
+                                     .format(funcName, tradeInfo.shape[0], time.time() - start))
+                except BaseException as e:
+                    mysqlCursor.execute('DELETE FROM {0} WHERE TRADE_DT>{1}'.format(tableName, latestDate))
+                    self.connMysqlRead.commit()
+                    self.logger.error('{0} : update failed， table cleaned'.format(funcName))
+                    raise e
         else:
             self.logger.info('{0} : no new data to update'.format(funcName))
 
@@ -359,9 +396,10 @@ if __name__=='__main__':
 
     obj = UpdaterOrigin()
     obj.update_basic_info()     # 其中 trade_dates 表
+    obj.update_trade_info()
+    obj.update_st_info()
     obj.update_shares_info()
     obj.patch_next_anndt(tableName='ASHARECAPITALIZATION')
     obj.update_holders_info()
     obj.patch_next_anndt(tableName='ASHAREFLOATHOLDER')
-    obj.update_st_info()
-    obj.update_trade_info()
+

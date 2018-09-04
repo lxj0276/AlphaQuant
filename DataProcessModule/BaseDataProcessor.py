@@ -78,12 +78,13 @@ class BaseDataProcessor:
                     当日跌停
                     成交额不足
                     上市不满100个交易日
-                    因重组等原因导致停牌后，复牌不足100个交易日 新重组的股票按照新股对待
                     最近100个（指数）交易日中交易天数小于50，注： 股票数据的交易日，可能存在数据空缺
+                    因重组等原因导致停牌后，复牌不足100个交易日 新重组的股票按照新股对待
         注 ： 当日 指 info ate
         注 ： 涨跌停板制度是1996年12月13日发布、1996年12月16日开始实施的 此前标记的涨跌停 可能不准确
         :param dateList: None 则提取全部交易日期
         :param stkList:  None 则提取全部股票代码
+
         :return:
         """
         funcName = sys._getframe().f_code.co_name
@@ -221,7 +222,7 @@ class BaseDataProcessor:
         if availableDate > str(lastUpdt):
             cutDate = self.calendar.tdaysoffset(num=-10,currDates=lastUpdt)     # 需要更新已存储的 但是 不完整的部分数据
             stockReturns = self.dataReader.get_responses(headDate=cutDate,
-                                                         tailDate=20020101,
+                                                         tailDate=None, #20020101,
                                                          selectType='CloseClose' if lastUpdt==0 else 'OpenClose',
                                                          retTypes={'OC': [1, 10], 'CC': [1]})
             for gap in range(2, 6):  # 构建单日收益率 的 gap 2-5
@@ -230,7 +231,14 @@ class BaseDataProcessor:
                 stockReturns['CCDay1Gap{}'.format(gap)] = stockReturns[['CCDay1']].groupby(level=alf.STKCD, sort=False,
                                                                                             as_index=False).shift(-gap)
             # save data
+            # 先修正现存数据
+            if self.dataConnector.has_table(tableName=tableName, isH5=updateH5):
+                idx = pd.IndexSlice
+                changeData = stockReturns.loc[idx[cutDate:lastUpdt,:],:]
+                self.dataConnector.change_table(changeData=changeData, tableName=tableName, isH5=updateH5)
             filterTypes = {col : sqltp.Float for col in stockReturns.columns.values}
+            filterTypes[alf.DATE] = sqltp.VARCHAR(8)
+            filterTypes[alf.STKCD] = sqltp.VARCHAR(40)
             self.dataConnector.store_table(tableData=stockReturns,
                                            tableName=tableName,
                                            if_exist='append',
@@ -244,12 +252,12 @@ class BaseDataProcessor:
 if __name__=='__main__':
     obj = BaseDataProcessor()
 
-    # obj.update_stock_count(updateH5=False)
-    # obj.update_features_filter(updateH5=False)
-    # obj.update_response_filter(updateH5=False)
-    #
-    # obj.update_stock_count(updateH5=True)
-    # obj.update_features_filter(updateH5=True)
-    # obj.update_response_filter(updateH5=True)
+    obj.update_stock_count(updateH5=False)
+    obj.update_features_filter(updateH5=False)
+    obj.update_response_filter(updateH5=False)
 
-    obj.update_response(updateH5=True)
+    obj.update_stock_count(updateH5=True)
+    obj.update_features_filter(updateH5=True)
+    obj.update_response_filter(updateH5=True)
+
+    obj.update_response(updateH5=False)

@@ -423,15 +423,21 @@ class DataReader:
 if __name__=='__main__':
     obj = DataReader()
 
-    t = obj.get_data(headDate=None,
-                     tailDate=None,
-                     stkList=['000001.SZ','000002.SZ','000004.SZ'],
-                     fields=[alf.OPEN,alf.HIGH,alf.LOW],
-                     tableName=None,
-                     dbName=None)
-
-    print(t.shape)
+    # t = obj.get_data(headDate=None,
+    #                  tailDate=None,
+    #                  stkList=['000001.SZ','000002.SZ','000004.SZ'],
+    #                  fields=[alf.OPEN,alf.HIGH,alf.LOW],
+    #                  tableName=None,
+    #                  dbName=None)
     #
+    # print(t.shape)
+
+    # t = obj.get_responses(headDate=20160101,tailDate=None,retTypes={'OC': [1], 'OO': [2], })
+    # t.to_csv('returns.csv')
+
+    t = obj.get_data(headDate=20160517, tailDate=20180518, fields = [als.NOTRD])
+    t.to_csv('notrd.csv')
+
     # t1 = obj.get_data(headDate=20170901,
     #                   tailDate=20180301,
     #                   stkList=['000002.SZ','000003.SZ','000004.SZ'],
