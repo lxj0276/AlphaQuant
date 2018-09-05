@@ -74,7 +74,7 @@ class FactorBase:
                                                       selectType='CloseClose',
                                                       retTypes={'OC':[1, 10],'CC':[1]})
         stockReturns = {'OCDay1': stockResponse[['OCDay1']], 'OCDay10': stockResponse[['OCDay10']]}
-        for gap in range(2,6):    # 构建单日收益率 的 gap 2-5
+        for gap in range(1,5):    # 构建单日收益率 的 gap 1-4
             stockReturns['OCDay1Gap{}'.format(gap)] = stockResponse[['OCDay1']].groupby(level=alf.STKCD, sort=False, as_index=False).shift(-gap)
             stockReturns['CCDay1Gap{}'.format(gap)] = stockResponse[['CCDay1']].groupby(level=alf.STKCD, sort=False, as_index=False).shift(-gap)
         # 计算因子 统计量

@@ -298,7 +298,8 @@ class DataReader:
                       tailDate=None,
                       stkList=None,
                       selectType='CloseClose',
-                      retTypes=None):
+                      retTypes=None,
+                      fromMysql=True):
         """
         计算收益率 ： 只考虑收益率是否完整有意义，日期是否匹配
                     不考率交易行为, 交易行为性过滤交给 filterY
@@ -333,6 +334,7 @@ class DataReader:
                                  stkList=stkList,
                                  fields=responseFields,
                                  selectType=selectType,
+                                 fromMysql=fromMysql,
                                  useCache=True)
         # 需要先校准 交易日期    先把过滤计算好
         retsData.reset_index(inplace=True)
@@ -389,7 +391,7 @@ class DataReader:
                     continue
                 retsData.loc[noTrades[num], retName] = np.nan
                 retNamesOut.append(retName)
-        print('return data taken with {0} seconds'.format(time.time() - start))
+        print('return data taken with {0} seconds from {1}'.format(time.time() - start, 'mysql' if fromMysql else 'h5'))
         retsData.sort_values([alf.DATE,alf.STKCD],inplace=True)
         return retsData.loc[(slice(headDate,tailDate),slice(None)),retNamesOut]
 
@@ -435,8 +437,8 @@ if __name__=='__main__':
     # t = obj.get_responses(headDate=20160101,tailDate=None,retTypes={'OC': [1], 'OO': [2], })
     # t.to_csv('returns.csv')
 
-    t = obj.get_data(headDate=20160517, tailDate=20180518, fields = [als.NOTRD])
-    t.to_csv('notrd.csv')
+    # t = obj.get_data(headDate=20160517, tailDate=20180518, fields = [als.NOTRD])
+    # t.to_csv('notrd.csv')
 
     # t1 = obj.get_data(headDate=20170901,
     #                   tailDate=20180301,

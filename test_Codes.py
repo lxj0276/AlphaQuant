@@ -10,18 +10,16 @@ import re
 import os
 
 
-s = time.time()
-b = pd.DataFrame({'a':range(10),'b':range(1,11),'c':range(10)})
-b.set_index(['a','b'], inplace=True)
-print(b)
+# s = time.time()
+# b = pd.DataFrame({'a':range(10),'b':range(1,11),'c':range(10)})
+# b.set_index(['a','b'], inplace=True)
+# print(b)
 
 # b.to_hdf('test.h5',key='test',mode='a',format='table')
 
-with pd.HDFStore('test.h5') as h5:
-    t=h5.select('test',where=['a in (1,2,3) and b==2'])
-    # t = h5.select('test',where=['a==1'])
-    # t = h5.select(key='test',start=9)
-    print(t)
+with pd.HDFStore(r'D:\AlphaQuant\data\update\RESPONSE_UPDATE.h5',complevel=4, complib='blosc') as h5:
+    print(h5.info())
+    print(h5.select(key='RESPONSE', start=9443747-1))
 
 
 raise
@@ -31,11 +29,11 @@ raise
 # h5.close()
 # print(time.time()-s)
 
-h5 = pd.HDFStore('test_c4.h5','a', complevel=4, complib='blosc')
+# h5 = pd.HDFStore('test_c4.h5','a', complevel=4, complib='blosc')
 # h5.put('data2',b,format='table',append=True)
 # h5.put('data3',b,format='table',append=True)
-t=h5.info()
-s=1
+# t=h5.info()
+# s=1
 # h5.close()
 
 

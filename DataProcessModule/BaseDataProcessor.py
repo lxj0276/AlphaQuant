@@ -224,26 +224,51 @@ class BaseDataProcessor:
             stockReturns = self.dataReader.get_responses(headDate=cutDate,
                                                          tailDate=None, #20020101,
                                                          selectType='CloseClose' if lastUpdt==0 else 'OpenClose',
-                                                         retTypes={'OC': [1, 10], 'CC': [1]})
-            for gap in range(2, 6):  # 构建单日收益率 的 gap 2-5
+                                                         retTypes={'OC': [1, 10], 'CC': [1]},
+                                                         fromMysql=False)
+            for gap in range(1, 5):  # 构建单日收益率 的 gap 1-4
                 stockReturns['OCDay1Gap{}'.format(gap)] = stockReturns[['OCDay1']].groupby(level=alf.STKCD, sort=False,
                                                                                             as_index=False).shift(-gap)
                 stockReturns['CCDay1Gap{}'.format(gap)] = stockReturns[['CCDay1']].groupby(level=alf.STKCD, sort=False,
                                                                                             as_index=False).shift(-gap)
-            # save data
-            # 先修正现存数据
+            # 如果数据表已经存在，需要先修正现存数据
             if self.dataConnector.has_table(tableName=tableName, isH5=updateH5):
                 idx = pd.IndexSlice
                 changeData = stockReturns.loc[idx[cutDate:lastUpdt,:],:]
                 self.dataConnector.change_table(changeData=changeData, tableName=tableName, isH5=updateH5)
+                newTable = False
+            else:
+                newTable = True
+                self.logger.info('{0} : table {1} does not exist, will be created'.format(funcName, tableName))
+            # 更新现存数据
             filterTypes = {col : sqltp.Float for col in stockReturns.columns.values}
             filterTypes[alf.DATE] = sqltp.VARCHAR(8)
             filterTypes[alf.STKCD] = sqltp.VARCHAR(40)
-            self.dataConnector.store_table(tableData=stockReturns,
+            if newTable:    # 数据表 还不存在
+                updateReturns = stockReturns
+            else:
+                idx = pd.IndexSlice
+                startDate = self.calendar.tdaysoffset(1, lastUpdt)
+                updateReturns = stockReturns.loc[idx[startDate:, :], :],
+            self.dataConnector.store_table(tableData=updateReturns,
                                            tableName=tableName,
                                            if_exist='append',
                                            isH5=updateH5,
                                            typeDict=filterTypes)
+            if updateH5:    # h5 更新 存储有效数据的 文件
+                idx = pd.IndexSlice
+                if newTable:    # 数据表 还不存在
+                    addValidEnd = self.calendar.tdaysoffset(currDates=availableDate, num=-10)
+                    addValidData = stockReturns.loc[idx[:addValidEnd, :], :]
+                else:
+                    addValidNum = self.calendar.tdayscount(headDate=lastUpdt, tailDate=availableDate)   # 新增有效数据对应日期天数
+                    addValidEnd = self.calendar.tdaysoffset(currDates=cutDate, num=addValidNum)         # 最新有效数据截止日期
+                    addValidData = stockReturns.loc[idx[cutDate:addValidEnd,:],:]
+                self.dataConnector.store_table(tableData=addValidData,
+                                               tableName='_'.join([tableName,'UPDATE']),
+                                               if_exist='append',
+                                               isH5=True
+                                               )
             self.logger.info('{0} : updated from {1} to {2}'.format(funcName, lastUpdt, availableDate))
         else:
             self.logger.info('{0} : no new data to update, last update {1}'.format(funcName, lastUpdt))
@@ -252,12 +277,13 @@ class BaseDataProcessor:
 if __name__=='__main__':
     obj = BaseDataProcessor()
 
-    obj.update_stock_count(updateH5=False)
-    obj.update_features_filter(updateH5=False)
-    obj.update_response_filter(updateH5=False)
+    # obj.update_stock_count(updateH5=False)
+    # obj.update_features_filter(updateH5=False)
+    # obj.update_response_filter(updateH5=False)
+    #
+    # obj.update_stock_count(updateH5=True)
+    # obj.update_features_filter(updateH5=True)
+    # obj.update_response_filter(updateH5=True)
 
-    obj.update_stock_count(updateH5=True)
-    obj.update_features_filter(updateH5=True)
-    obj.update_response_filter(updateH5=True)
-
-    obj.update_response(updateH5=False)
+    # obj.update_response(updateH5=False)
+    obj.update_response(updateH5=True)
