@@ -32,9 +32,9 @@ class FactorBase:
         self.scoreObj = FactorScores()
         self.testsObj = FactorTests()
         if FactorBase.factorIO is None:
-            FactorBase.factorIO = FactorIO(basePath=None, fctDataPath=update.fctDataPath)
+            FactorBase.factorIO = FactorIO(fctDataPath=update.fctDataPath)
         if FactorBase.dataReader is None:
-            FactorBase.dataReader = DataReader(basePath=None, cacheLevel='Level1', connectRemote=False)
+            FactorBase.dataReader = DataReader(cacheLevel='Level1', connectRemote=False)
 
 
     def factor_definition(self):
@@ -46,7 +46,8 @@ class FactorBase:
         :return:
         """
 
-        self.tailDate=20010101
+        self.headDate = 20180101
+        # self.tailDate=20010101
         print('updating factor {0} , {1}'.format(self.factorName, 'start new' if update.startOver else 'update exist'))
         start = time.time()
         # 提取需要的数据       # 注： 因子更新 数据需要部分 日期提前，取决于因子定义 ！！！！ 还没完成， 完成后 rawFactor 需要重新 切割 ！！！

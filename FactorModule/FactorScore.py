@@ -52,7 +52,7 @@ class FactorScores:
                 raise NotImplementedError
             else:
                 raise NotImplementedError
-            fctScore = fctScore.loc[~filterX, :]
+            fctScore = fctScore.loc[~filterX, :]            # 去除无效 因子 分值
             fctScore.sort_values(by=[alf.DATE, alf.STKCD])
             outScores['_'.join([factorName, tp])] = fctScore
         return outScores

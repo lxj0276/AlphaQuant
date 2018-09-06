@@ -22,4 +22,4 @@ def update_factors(factorDefPath, factorDataPath, factorList=None, startOver=Tru
 if __name__=='__main__':
     update_factors(factorDefPath=r'..\FactorPool\factors_wangjp',
                    factorDataPath=r'..\FactorPool\factors_data',
-                   startOver=True)
+                   startOver=True,)

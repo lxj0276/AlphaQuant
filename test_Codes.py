@@ -17,16 +17,15 @@ import os
 
 # b.to_hdf('test.h5',key='test',mode='a',format='table')
 
-from WindPy import w
-w.start()
-t = w.wsd('000905.SH','CLOSE','20151230','20180906')
-s
 
-raise
-
-with pd.HDFStore(r'D:\AlphaQuant\data\FEATURES_FILTER.h5',complevel=4, complib='blosc') as h5:
+ind = True
+with pd.HDFStore(r'D:\AlphaQuant\FactorPool\factors_data\mom5\factor_indicators.h5',complevel=4, complib='blosc') as h5:
     print(h5.info())
-    print(h5.select(key='FEATURES_FILTER', start=9443747-1).columns)
+    # data = h5.select(key='zscore',start=0)
+    data = h5.select(key='beta', start=0)
+    # data = h5.select(key='rank',start=4749300)
+    t=1
+
 
 
 raise

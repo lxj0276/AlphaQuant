@@ -25,26 +25,31 @@ class FactorTests:
         start = time.time()
         xName = x.columns
         yName = y.columns
-        y = y.dropna()
         if ('rank' in indicator) or ('Rank' in indicator):     # 需要对 收益率 进行排序
-            y = y.groupby(level=alf.DATE, as_index=False, sort=False).rank(pct=True)
+            yRank = y.groupby(level=alf.DATE, as_index=False, sort=False).rank(pct=False)
+            yMax = y.groupby(level=alf.DATE, as_index=True, sort=False).max()
+            y = yRank/yMax
         joined = x.join(y, how='inner')
-        # joined['xy'] = joined[xName].values*joined[yName].values
         xy = pd.DataFrame(joined[xName].values*joined[yName].values, columns=yName, index=joined.index)
         validStkCnt = joined[xName].groupby(level=alf.DATE, as_index=True, sort=False).count()
         validStkCnt.columns = ['stkCnt']
         if indicator in ('beta','IC','rankIC'):
             groupObj = joined.groupby(level=alf.DATE, as_index=True, sort=False)
-            meanX = groupObj[xName].mean()
-            meanY = groupObj[yName].mean()
             meanXY = xy.groupby(level=alf.DATE, as_index=True, sort=False).mean()
+            # zscore 均值为0 标准差1, 适用于 beta ic
             if indicator in ('beta',):
-                varX = groupObj[xName].var(ddof=0)
-                indiResult = (meanX.values*meanY.values - meanXY.values)/varX.values
+                # varX = groupObj[xName].var(ddof=0)
+                # indiResult = (meanXY.values - meanX.values*meanY.values)/varX.values
+                indiResult = meanXY.values
             else:
-                stdX = groupObj[xName].std(ddof=0)
+                meanY = groupObj[yName].mean()
                 stdY = groupObj[yName].std(ddof=0)
-                indiResult = (meanX.values*meanY.values - meanXY.values)/(stdX.values*stdY.values)
+                if indicator in ('IC',):
+                    indiResult = meanXY.values / stdY.values
+                else:
+                    meanX = groupObj[xName].mean()
+                    stdX = groupObj[xName].std(ddof=0)
+                    indiResult = (meanX.values*meanY.values - meanXY.values)/(stdX.values*stdY.values)
         elif indicator in ('weightedIC','weightedRankIC'):
             pass
         elif indicator in ('tbdf',):
@@ -52,9 +57,8 @@ class FactorTests:
             botRet = joined[(joined[xName]>=0.9).values][yName].groupby(level=alf.DATE, as_index=True, sort=False).mean()
             indiResult = (topRet - botRet).values
         elif indicator in ('groupIC',):
-            # joined['xGroupRank'] = joined[xName.values[0]].map(lambda x : int(np.ceil(x*100)))  # 将X值对应分成100组
             joined.reset_index(inplace=True)
-            joined['xGroupRank'] = np.ceil(joined[xName].values).astype(np.int)
+            joined['xGroupRank'] = np.ceil(joined[xName].values*100).astype(np.int)
             groupY = joined.groupby(by=[alf.DATE, 'xGroupRank'], as_index=False, sort=False)[yName].mean()  # 计算每组平均收益
             groupXY = pd.DataFrame(groupY[yName].values*groupY[['xGroupRank']].values, columns=yName)
             groupXY[alf.DATE] = groupY[alf.DATE]
@@ -68,11 +72,11 @@ class FactorTests:
         indicatorsOut = pd.DataFrame(indiResult, columns=yName, index=validStkCnt.index)
         indicatorsOut = validStkCnt.join(indicatorsOut)
 
-        print('{0} updated with {1} seconds'.format(indicator, time.time()-start))
+        print('{0} calculated with {1} seconds'.format(indicator, time.time()-start))
         return indicatorsOut
 
 
-    def factor_indicators_section(self, factorName, factorScores, stockRets, minStockNum=200):
+    def factor_indicators_section(self, factorName, factorScores, stockRets):
         """
         计算因子 截面统计量 beta IC rankIC weightedIC weightedRankIC groupIC tbdf
         ref : https://mp.weixin.qq.com/s/meGaS8cPcvzz08EvK7oTsg

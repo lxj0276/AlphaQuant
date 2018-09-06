@@ -24,7 +24,7 @@ class FactorIO:
     用于 因子数据 读写
     """
 
-    def __init__(self, basePath, fctDataPath):
+    def __init__(self, basePath=None, fctDataPath=None):
         if basePath is None:
             basePath = os.path.join(rootPath,'FactorModule')
         cfp = cp.ConfigParser()
@@ -49,18 +49,20 @@ class FactorIO:
         if not os.path.exists(factorStorePath):
             os.mkdir(factorStorePath)
         self.logger.info('updating factor {}...'.format(factorName))
+        first = True
         for fctSC in factorScores:
             scoreType = fctSC.split('_')[-1]
             factorScores[fctSC].to_hdf(path_or_buf=os.path.join(factorStorePath, 'factor_scores.h5'),
                                        key=scoreType,
-                                       mode='w' if ifExist == 'replace' else 'a',
+                                       mode='w' if (ifExist == 'replace' and first)else 'a',
                                        format='table',
                                        append=True,
                                        complevel=4)
+            first = False
             print(fctSC, ' updated')
         self.logger.info('factor {0} updated with {1} seconds'.format(factorName, time.time() - start))
 
-    def read_factor_indicators(self):
+    def read_factor_indicators(self, indicators, headDate=None, tailDate=None, dateList=None):
         pass
 
     def write_factor_indcators(self, factorName, factorIndicators,ifExist='replace'):
@@ -74,12 +76,14 @@ class FactorIO:
         if not os.path.exists(factorStorePath):
             os.mkdir(factorStorePath)
         self.logger.info('updating factor {}...'.format(factorName))
+        first = True
         for indType in factorIndicators:
             factorIndicators[indType].to_hdf(path_or_buf=os.path.join(factorStorePath, 'factor_indicators.h5'),
                                              key=indType,
-                                             mode='w' if ifExist == 'replace' else 'a',
+                                             mode='w' if (ifExist == 'replace' and first) else 'a',
                                              format='table',
                                              append=True,
                                              complevel=4)
+            first = False
             print(indType,' updated')
         self.logger.info('factor {0} updated with {1} seconds'.format(factorName, time.time() - start))
