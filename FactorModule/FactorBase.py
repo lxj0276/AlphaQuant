@@ -23,8 +23,6 @@ class FactorBase:
     def __init__(self, basePath=None):
         if basePath is None:
             basePath = rootPath
-        cfp = cp.ConfigParser()
-        cfp.read(os.path.join(basePath,'FactorModule','configs', 'pathInfo.ini'))
         self.headDate = 20000101
         self.tailDate = None
         self.needFields = None
@@ -46,7 +44,7 @@ class FactorBase:
         :return:
         """
 
-        self.headDate = 20180101
+        # self.headDate = 20180101
         # self.tailDate=20010101
         print('updating factor {0} , {1}'.format(self.factorName, 'start new' if update.startOver else 'update exist'))
         start = time.time()

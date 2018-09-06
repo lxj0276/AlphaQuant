@@ -22,14 +22,12 @@ class DataConnector:
     """
     用于 数据库 与 本地数据（date, stkcd）类型 的交互
     """
-    def __init__(self, logger, dbName=None, basePath=None):
-        if basePath is None:
-            basePath = os.path.join(rootPath, 'HelpModules')
+    def __init__(self, logger, dbName=None):
         # setup logger
         self.logger = logger
         cfp = cp.ConfigParser()
         # get mysql
-        cfp.read(os.path.join(basePath,'configs', 'loginInfo.ini'))
+        cfp.read(os.path.join(rootPath,'Configs', 'loginInfo.ini'))
         loginfoMysql = dict(cfp.items('Mysql'))
         self.connMysqlRead = mysql.connector.connect(user=loginfoMysql['user'], password=loginfoMysql['password'],
                                                      host=loginfoMysql['host'])
@@ -38,7 +36,7 @@ class DataConnector:
         self.dbName = DatabaseNames.MysqlDaily if dbName is None else dbName
         self.switch_db()
         # get hdf
-        cfp.read(os.path.join(basePath, 'configs', 'dataPath.ini'))
+        cfp.read(os.path.join(rootPath, 'Configs', 'dataPath.ini'))
         self.h5Path = cfp.get('data','h5')
         self.h5Backup = os.path.join(self.h5Path,'backup')
         self.h5Update = os.path.join(self.h5Path,'update')

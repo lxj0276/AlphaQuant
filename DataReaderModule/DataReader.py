@@ -34,11 +34,11 @@ class DataReader:
 
     def __init__(self, basePath=None, cacheLevel='LEVEL1', connectRemote=False):
         if basePath is None:
-            basePath = os.path.join(rootPath,'DataReaderModule')
+            basePath = os.path.join(rootPath, 'DataReaderModule')
         cfp = cp.ConfigParser()
-        cfp.read(os.path.join(basePath,'configs','dataPath.ini'))
+        cfp.read(os.path.join(rootPath,'Configs','dataPath.ini'))
         self.h5Path = cfp.get('data', 'h5')
-        cfp.read(os.path.join(basePath,'configs', 'loginInfo.ini'))
+        cfp.read(os.path.join(rootPath,'Configs', 'loginInfo.ini'))
         loginfoMysql = dict(cfp.items('Mysql'))
         self.connMysqlRead = mysql.connector.connect(user=loginfoMysql['user'],
                                                      password=loginfoMysql['password'],

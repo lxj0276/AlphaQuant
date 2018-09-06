@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 
 from HelpModules.Logger import Logger
+from DataReaderModule.Constants import rootPath
 from DataLocalizeModule.ConstantsDB import DatabaseNames,TableNames,FieldTypeDict,WPFX
 
 
@@ -27,7 +28,7 @@ class UpdaterOrigin:
     """
 
     def __init__(self, config=None):
-        config = r'.\configs\loginInfo.ini' if config is None else config
+        config = os.path.join(rootPath,'Configs','loginInfo.ini') if config is None else config
         cfp = cp.ConfigParser()
         cfp.read(config)
         loginfoWind = dict(cfp.items('Wind'))

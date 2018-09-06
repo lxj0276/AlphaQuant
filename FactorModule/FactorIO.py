@@ -27,11 +27,7 @@ class FactorIO:
     def __init__(self, basePath=None, fctDataPath=None):
         if basePath is None:
             basePath = os.path.join(rootPath,'FactorModule')
-        cfp = cp.ConfigParser()
-        cfp.read(os.path.join(basePath,'configs', 'pathInfo.ini'))
         self.factorDataPath = fctDataPath
-        cfp.read(os.path.join(basePath,'configs', 'loginInfo.ini'))
-        # create logger
         self.logger = Logger(logPath=os.path.join(basePath,'log')).get_logger(loggerName=__name__, logName='factorIO_log')
         self.logger.info('')
 

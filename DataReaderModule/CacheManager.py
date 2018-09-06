@@ -25,9 +25,9 @@ class CacheManager:
 
     def __init__(self, basePath=None, cacheLevel='Level1'):
         if basePath is None:
-            basePath = os.path.join(rootPath, 'DBReaderModule')
+            basePath = os.path.join(rootPath, 'DataReaderModule')
         cfp = cp.ConfigParser()
-        cfp.read(os.path.join(basePath, 'configs', 'loginInfo.ini'))
+        cfp.read(os.path.join(rootPath, 'Configs', 'loginInfo.ini'))
         loginfoMysql = dict(cfp.items('Mysql'))
         self.connMysqlRead = mysql.connector.connect(user=loginfoMysql['user'],
                                                      password=loginfoMysql['password'],

@@ -1,4 +1,5 @@
-
+#coding=utf8
+__author__ = 'wangjp'
 
 import os
 import time
@@ -15,11 +16,8 @@ def update_factors(factorDefPath, factorDataPath, factorList=None, startOver=Tru
     update.fctDataPath = factorDataPath
 
     factorPkg = factorDefPath.split('\\')[-1]
+
+    start = time.time()
     for fct in factorList:
         __import__('FactorPool.{0}.{1}'.format(factorPkg, fct))
-
-
-if __name__=='__main__':
-    update_factors(factorDefPath=r'..\FactorPool\factors_wangjp',
-                   factorDataPath=r'..\FactorPool\factors_data',
-                   startOver=True,)
+    print('{0} factors updated with {1} seconds'.format(len(factorList), time.time()-start))
