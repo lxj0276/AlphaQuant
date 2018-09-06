@@ -24,22 +24,16 @@ class FactorIO:
     用于 因子数据 读写
     """
 
-    def __init__(self, basePath):
+    def __init__(self, basePath, fctDataPath):
         if basePath is None:
             basePath = os.path.join(rootPath,'FactorModule')
         cfp = cp.ConfigParser()
         cfp.read(os.path.join(basePath,'configs', 'pathInfo.ini'))
-        self.factorDataPath = cfp.get('path','factorData')
+        self.factorDataPath = fctDataPath
         cfp.read(os.path.join(basePath,'configs', 'loginInfo.ini'))
-        loginfoMysql = dict(cfp.items('Mysql'))
         # create logger
         self.logger = Logger(logPath=os.path.join(basePath,'log')).get_logger(loggerName=__name__, logName='factorIO_log')
         self.logger.info('')
-        self.connMysqlRead = mysql.connector.connect(user=loginfoMysql['user'],
-                                                     password=loginfoMysql['password'],
-                                                     host=loginfoMysql['host'])
-        self.connMysqlWrite = create_engine(r'mysql+mysqldb://{user}:{password}@{host}:{port}/{database}?charset={charset}'
-                                            .format(**loginfoMysql))
 
     def read_factor_scores(self):
         pass

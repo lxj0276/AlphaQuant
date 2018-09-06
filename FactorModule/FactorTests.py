@@ -1,6 +1,6 @@
 #coding=utf8
 __author__ = 'wangjp'
-
+import time
 import numpy as np
 import pandas as pd
 
@@ -14,57 +14,62 @@ class FactorTests:
     def __init__(self):
         pass
 
-    def _indicator_section(self, x, y, indicator, minStockNum):
+    def _indicator_section(self, x, y, indicator):
         """
         计算 两列 数据 的横截面指标
         :param x:
         :param y:
         :param indicator:
-        :param minStockNum:
         :return:
         """
+        start = time.time()
         xName = x.columns
         yName = y.columns
         y = y.dropna()
         if ('rank' in indicator) or ('Rank' in indicator):     # 需要对 收益率 进行排序
             y = y.groupby(level=alf.DATE, as_index=False, sort=False).rank(pct=True)
         joined = x.join(y, how='inner')
-        joined['xy'] = joined[xName].values*joined[yName].values
+        # joined['xy'] = joined[xName].values*joined[yName].values
+        xy = pd.DataFrame(joined[xName].values*joined[yName].values, columns=yName, index=joined.index)
         validStkCnt = joined[xName].groupby(level=alf.DATE, as_index=True, sort=False).count()
         validStkCnt.columns = ['stkCnt']
         if indicator in ('beta','IC','rankIC'):
-            meanX = joined[xName].groupby(level=alf.DATE, as_index=True, sort=False).mean()
-            meanY = joined[yName].groupby(level=alf.DATE, as_index=True, sort=False).mean()
-            meanXY = joined[['xy']].groupby(level=alf.DATE, as_index=True, sort=False).mean()
+            groupObj = joined.groupby(level=alf.DATE, as_index=True, sort=False)
+            meanX = groupObj[xName].mean()
+            meanY = groupObj[yName].mean()
+            meanXY = xy.groupby(level=alf.DATE, as_index=True, sort=False).mean()
             if indicator in ('beta',):
-                varX = joined[xName].groupby(level=alf.DATE, as_index=True, sort=False).var(ddof=0)
-                validStkCnt[indicator] = (meanX.values*meanY.values - meanXY.values)/varX.values
+                varX = groupObj[xName].var(ddof=0)
+                indiResult = (meanX.values*meanY.values - meanXY.values)/varX.values
             else:
-                stdX = joined[xName].groupby(level=alf.DATE, as_index=True, sort=False).std(ddof=0)
-                stdY = joined[yName].groupby(level=alf.DATE, as_index=True, sort=False).std(ddof=0)
-                validStkCnt[indicator] = (meanX.values*meanY.values - meanXY.values)/(stdX.values*stdY.values)
+                stdX = groupObj[xName].std(ddof=0)
+                stdY = groupObj[yName].std(ddof=0)
+                indiResult = (meanX.values*meanY.values - meanXY.values)/(stdX.values*stdY.values)
         elif indicator in ('weightedIC','weightedRankIC'):
             pass
         elif indicator in ('tbdf',):
             topRet = joined[(joined[xName]<=0.1).values][yName].groupby(level=alf.DATE, as_index=True, sort=False).mean()
             botRet = joined[(joined[xName]>=0.9).values][yName].groupby(level=alf.DATE, as_index=True, sort=False).mean()
-            validStkCnt[indicator] = topRet.values - botRet.values
+            indiResult = (topRet - botRet).values
         elif indicator in ('groupIC',):
-            joined['xGroupRank'] = joined[xName.values[0]].map(lambda x : int(np.ceil(x*100)))
+            # joined['xGroupRank'] = joined[xName.values[0]].map(lambda x : int(np.ceil(x*100)))  # 将X值对应分成100组
             joined.reset_index(inplace=True)
-            groupY = joined.groupby(by=[alf.DATE, 'xGroupRank'], as_index=False, sort=False)[yName].mean()
-            groupY['xy'] = groupY[yName.values[0]].values*groupY['xGroupRank'].values
-            numerator = groupY.groupby(by=alf.DATE,as_index=True,sort=False)['xy'].mean() - \
-                        (groupY.groupby(by=alf.DATE,as_index=True,sort=False)['xGroupRank'].mean() *
-                         groupY.groupby(by=alf.DATE,as_index=True,sort=False)[yName.values[0]].mean())
-            denominator = groupY.groupby(by=alf.DATE, as_index=True, sort=False)[yName.values[0]].std(ddof=0) * \
-                          groupY.groupby(by=alf.DATE, as_index=True, sort=False)['xGroupRank'].std(ddof=0)
-            validStkCnt[indicator] = numerator/denominator
+            joined['xGroupRank'] = np.ceil(joined[xName].values).astype(np.int)
+            groupY = joined.groupby(by=[alf.DATE, 'xGroupRank'], as_index=False, sort=False)[yName].mean()  # 计算每组平均收益
+            groupXY = pd.DataFrame(groupY[yName].values*groupY[['xGroupRank']].values, columns=yName)
+            groupXY[alf.DATE] = groupY[alf.DATE]
+            groupYObj = groupY.groupby(by=alf.DATE, as_index=True, sort=False)
+            groupXYObj = groupXY.groupby(by=alf.DATE, as_index=True, sort=False)
+            numerator = groupXYObj.mean().values - (groupYObj[['xGroupRank']].mean().values * groupYObj[yName.values].mean().values)
+            denominator = groupXYObj.std(ddof=0).values * groupYObj[['xGroupRank']].std(ddof=0).values
+            indiResult = numerator/denominator
         else:
             raise NotImplementedError
-        validStkCnt.loc[validStkCnt['stkCnt']<minStockNum, indicator] = np.nan
-        validStkCnt.sort_values(by=alf.DATE, inplace=True)
-        return validStkCnt.loc[:, indicator]
+        indicatorsOut = pd.DataFrame(indiResult, columns=yName, index=validStkCnt.index)
+        indicatorsOut = validStkCnt.join(indicatorsOut)
+
+        print('{0} updated with {1} seconds'.format(indicator, time.time()-start))
+        return indicatorsOut
 
 
     def factor_indicators_section(self, factorName, factorScores, stockRets, minStockNum=200):
@@ -77,32 +82,25 @@ class FactorTests:
         :param minStockNum:    有效截面结果 所需的 最小股票数量
         :return:
         """
-        allIndicators = {'beta': pd.DataFrame([]),
-                         'IC':  pd.DataFrame([]),
-                         'rankIC': pd.DataFrame([]),
-                         'groupIC': pd.DataFrame([]),
-                         'tbdf': pd.DataFrame([]),
-                         }
-        for retType in stockRets:
-            allIndicators['beta'][retType] = self._indicator_section(x=factorScores['_'.join([factorName,'zscore'])],
-                                                                     y=stockRets[retType],
-                                                                     indicator='beta',
-                                                                     minStockNum=minStockNum)
-            allIndicators['IC'][retType] = self._indicator_section(x=factorScores['_'.join([factorName,'zscore'])],
-                                                                   y=stockRets[retType],
-                                                                   indicator='IC',
-                                                                   minStockNum=minStockNum)
-            allIndicators['rankIC'][retType] = self._indicator_section(x=factorScores['_'.join([factorName,'rank'])],
-                                                                       y=stockRets[retType],
-                                                                       indicator='rankIC',
-                                                                       minStockNum=minStockNum)
-            allIndicators['tbdf'][retType] = self._indicator_section(x=factorScores['_'.join([factorName,'rank'])],
-                                                                     y=stockRets[retType],
-                                                                     indicator='tbdf',
-                                                                     minStockNum=minStockNum)
-            allIndicators['groupIC'][retType] = self._indicator_section(x=factorScores['_'.join([factorName,'rank'])],
-                                                                        y=stockRets[retType],
-                                                                        indicator='groupIC',
-                                                                        minStockNum=minStockNum)
+        start = time.time()
+        allIndicators = {}
+
+        allIndicators['beta'] = self._indicator_section(x=factorScores['_'.join([factorName,'zscore'])],
+                                                        y=stockRets,
+                                                        indicator='beta',)
+        allIndicators['IC'] = self._indicator_section(x=factorScores['_'.join([factorName,'zscore'])],
+                                                      y=stockRets,
+                                                      indicator='IC',)
+        allIndicators['rankIC'] = self._indicator_section(x=factorScores['_'.join([factorName,'rank'])],
+                                                          y=stockRets,
+                                                          indicator='rankIC',)
+        allIndicators['tbdf'] = self._indicator_section(x=factorScores['_'.join([factorName,'rank'])],
+                                                        y=stockRets,
+                                                        indicator='tbdf',)
+        allIndicators['groupIC'] = self._indicator_section(x=factorScores['_'.join([factorName,'rank'])],
+                                                           y=stockRets,
+                                                           indicator='groupIC',)
+
+        print('indicators calced with {} seconds'.format(time.time() - start))
         return allIndicators
 

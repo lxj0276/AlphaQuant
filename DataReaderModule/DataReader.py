@@ -204,7 +204,7 @@ class DataReader:
                             #### 需要提取部分股票的日期 ###
                             partialStocks = list(set([pair[1] for pair in self.cacheManager._fieldsIndex[table][fld] if
                                                       pair[0] in partialDates]))  # 已经缓存的那部分股票
-                            needStksStr = ['"{}"'.format(stk) for stk in (set(stkList) - set(partialStocks))]
+                            needStksStr = ['"{}"'.format(stk) for stk in (set(stkList) - set(partialStocks))] if stkList is not None else []
                             if not fromMysql:
                                 partialDates = ['"{}"'.format(tdt) for tdt in partialDates]
                             keyDict = {'fields': ','.join(takeFields),
@@ -395,7 +395,7 @@ class DataReader:
         retsData.sort_values([alf.DATE,alf.STKCD],inplace=True)
         return retsData.loc[(slice(headDate,tailDate),slice(None)),retNamesOut]
 
-    def get_filterX(self, headDate=None, tailDate=None, dateList=None, stkList=None, selectType='CloseClose'):
+    def get_filterX(self, headDate=None, tailDate=None, dateList=None, stkList=None, selectType='CloseClose',fromMysql=False):
         """
         提取 特征信息 对应的过滤
         买入日 停牌、涨停 导致的无法买入 （注：卖出日跌停无法预知，因而虽然会导致无法卖出但不应筛选掉）
@@ -407,7 +407,8 @@ class DataReader:
                                    dateList=dateList,
                                    stkList=stkList,
                                    selectType=selectType,
-                                   fields=filterFields)
+                                   fields=filterFields,
+                                   fromMysql=fromMysql)
         filterX = filterData.any(axis=1)
         return filterX
 

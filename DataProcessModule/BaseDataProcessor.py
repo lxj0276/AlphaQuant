@@ -131,6 +131,8 @@ class BaseDataProcessor:
             newTail = np.max(outDates)
             newHead = np.min(outDates[outDates>str(lastUpdt)])
             baseData = baseData.loc[(slice(newHead,newTail),slice(None)), filterColumns]    # 去除此前多取得部分，提取对应 列
+            baseData['FilterX'] = baseData.any(axis=1)
+            filterColumns.append('FilterX')
             # type Dict
             filterTypes = {col : sqltp.BOOLEAN for col in filterColumns}
             filterTypes[alf.DATE] = sqltp.VARCHAR(8)
@@ -282,8 +284,8 @@ if __name__=='__main__':
     # obj.update_response_filter(updateH5=False)
     #
     # obj.update_stock_count(updateH5=True)
-    # obj.update_features_filter(updateH5=True)
+    obj.update_features_filter(updateH5=True)
     # obj.update_response_filter(updateH5=True)
 
     # obj.update_response(updateH5=False)
-    obj.update_response(updateH5=True)
+    # obj.update_response(updateH5=True)

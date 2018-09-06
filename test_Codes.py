@@ -17,9 +17,16 @@ import os
 
 # b.to_hdf('test.h5',key='test',mode='a',format='table')
 
-with pd.HDFStore(r'D:\AlphaQuant\data\update\RESPONSE_UPDATE.h5',complevel=4, complib='blosc') as h5:
+from WindPy import w
+w.start()
+t = w.wsd('000905.SH','CLOSE','20151230','20180906')
+s
+
+raise
+
+with pd.HDFStore(r'D:\AlphaQuant\data\FEATURES_FILTER.h5',complevel=4, complib='blosc') as h5:
     print(h5.info())
-    print(h5.select(key='RESPONSE', start=9443747-1))
+    print(h5.select(key='FEATURES_FILTER', start=9443747-1).columns)
 
 
 raise

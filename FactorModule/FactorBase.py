@@ -32,7 +32,7 @@ class FactorBase:
         self.scoreObj = FactorScores()
         self.testsObj = FactorTests()
         if FactorBase.factorIO is None:
-            FactorBase.factorIO = FactorIO(basePath=None)
+            FactorBase.factorIO = FactorIO(basePath=None, fctDataPath=update.fctDataPath)
         if FactorBase.dataReader is None:
             FactorBase.dataReader = DataReader(basePath=None, cacheLevel='Level1', connectRemote=False)
 
@@ -45,42 +45,55 @@ class FactorBase:
         完成 因子的 计算，打分，测试，入库 等
         :return:
         """
-        # put the generator here
 
-        # self.tailDate=20010101
+        self.tailDate=20010101
+        print('updating factor {0} , {1}'.format(self.factorName, 'start new' if update.startOver else 'update exist'))
         start = time.time()
-        # 提取需要的数据
+        # 提取需要的数据       # 注： 因子更新 数据需要部分 日期提前，取决于因子定义 ！！！！ 还没完成， 完成后 rawFactor 需要重新 切割 ！！！
         self.needData = self.dataReader.get_data(fields=self.needFields,
                                                  headDate=self.headDate,
                                                  tailDate=self.tailDate,
-                                                 selectType='CloseClose')
+                                                 selectType='CloseClose',
+                                                 fromMysql=False,
+                                                 useCache=True)
         # 因子计算
         rawFactor = self.factor_definition()
         # 获取filter X
-        filterX = self.dataReader.get_filterX(headDate=self.headDate,
-                                              tailDate=self.tailDate,
-                                              selectType='CloseClose')
+        filterX = self.dataReader.get_data(headDate=self.headDate,
+                                           tailDate=self.tailDate,
+                                           selectType='CloseClose',
+                                           fields=['FilterX'],
+                                           fromMysql=False,
+                                           useCache=True)['FilterX']
         # 因子打分
-        factorScores = self.scoreObj.factor_scores_section(rawFactor=rawFactor,
-                                                           filterX=filterX)
+        factorScores = self.scoreObj.factor_scores_section(rawFactor=rawFactor, filterX=filterX)
         # 因子存储
         ifExist = 'replace' if update.startOver else 'append'
         self.factorIO.write_factor_scores(factorName=self.factorName,
                                           factorScores=factorScores,
                                           ifExist=ifExist)
         # 提取收益率
-        stockResponse = self.dataReader.get_responses(headDate=self.headDate,
-                                                      tailDate=self.tailDate,
-                                                      selectType='CloseClose',
-                                                      retTypes={'OC':[1, 10],'CC':[1]})
-        stockReturns = {'OCDay1': stockResponse[['OCDay1']], 'OCDay10': stockResponse[['OCDay10']]}
-        for gap in range(1,5):    # 构建单日收益率 的 gap 1-4
-            stockReturns['OCDay1Gap{}'.format(gap)] = stockResponse[['OCDay1']].groupby(level=alf.STKCD, sort=False, as_index=False).shift(-gap)
-            stockReturns['CCDay1Gap{}'.format(gap)] = stockResponse[['CCDay1']].groupby(level=alf.STKCD, sort=False, as_index=False).shift(-gap)
+        stockResponse = self.dataReader.get_data(headDate=self.headDate,
+                                                 tailDate=self.tailDate,
+                                                 selectType='CloseClose',
+                                                 fromMysql=False,
+                                                 useCache=False,
+                                                 fields=['OCDay1',
+                                                         'CCDay1',
+                                                         'OCDay10',
+                                                         'OCDay1Gap1',
+                                                         'CCDay1Gap1',
+                                                         'OCDay1Gap2',
+                                                         'CCDay1Gap2',
+                                                         'OCDay1Gap3',
+                                                         'CCDay1Gap3',
+                                                         'OCDay1Gap4',
+                                                         'CCDay1Gap4'])
         # 计算因子 统计量
         factorIndicators = self.testsObj.factor_indicators_section(factorScores=factorScores,
-                                                             stockRets=stockReturns,
-                                                             factorName=self.factorName)
+                                                                   stockRets=stockResponse,
+                                                                   factorName=self.factorName)
+        # 因子统计量 存储
         self.factorIO.write_factor_indcators(factorName=self.factorName,
                                              factorIndicators=factorIndicators,
                                              ifExist=ifExist)

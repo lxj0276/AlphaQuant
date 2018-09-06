@@ -44,8 +44,9 @@ class FactorScores:
                     lowerIdx = rawFactor - lower < 0
                     rawFactor[upperIdx.values] = upper
                     rawFactor[lowerIdx.values] = lower
-                meanFactor = rawFactor.groupby(level=alf.DATE,sort=False,as_index=True).mean()
-                stdFactor = rawFactor.groupby(level=alf.DATE,sort=False,as_index=True).std()
+                groupObj = rawFactor.groupby(level=alf.DATE,sort=False,as_index=True)
+                meanFactor = groupObj.mean()
+                stdFactor = groupObj.std()
                 fctScore = (rawFactor - meanFactor)/stdFactor
             elif tp == 'norminv':
                 raise NotImplementedError
