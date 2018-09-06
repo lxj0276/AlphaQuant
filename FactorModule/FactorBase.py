@@ -2,13 +2,12 @@
 __author__ = 'wangjp'
 
 import os
-import sys
 import time
-import configparser as cp
 
 from DataReaderModule.Constants import rootPath
-from DataReaderModule.Constants import ALIAS_FIELDS as alf
 from DataReaderModule.DataReader import DataReader
+from DataReaderModule.Constants import ALIAS_FIELDS as alf
+from DataReaderModule.Constants import ALIAS_RESPONSE as alr
 from FactorModule.__update__ import update
 from FactorModule.FactorIO import FactorIO
 from FactorModule.FactorScore import FactorScores
@@ -44,7 +43,7 @@ class FactorBase:
         :return:
         """
 
-        # self.headDate = 20180101
+        self.headDate = 20180101
         # self.tailDate=20010101
         print('updating factor {0} , {1}'.format(self.factorName, 'start new' if update.startOver else 'update exist'))
         start = time.time()
@@ -54,7 +53,7 @@ class FactorBase:
                                                  tailDate=self.tailDate,
                                                  selectType='CloseClose',
                                                  fromMysql=False,
-                                                 useCache=True)
+                                                 useCache=update.useCache)
         # 因子计算
         rawFactor = self.factor_definition()
         # 获取filter X
@@ -63,7 +62,7 @@ class FactorBase:
                                            selectType='CloseClose',
                                            fields=['FilterX'],
                                            fromMysql=False,
-                                           useCache=True)['FilterX']
+                                           useCache=update.useCache)['FilterX']
         # 因子打分
         factorScores = self.scoreObj.factor_scores_section(rawFactor=rawFactor, filterX=filterX)
         # 因子存储
@@ -72,22 +71,13 @@ class FactorBase:
                                           factorScores=factorScores,
                                           ifExist=ifExist)
         # 提取收益率
+        responseFields = [alr.OC1, alr.OC10, alr.OCG1, alr.OCG2, alr.OCG3, alr.OCG4, alr.CCG1, alr.CCG2, alr.CCG3, alr.CCG4]
         stockResponse = self.dataReader.get_data(headDate=self.headDate,
                                                  tailDate=self.tailDate,
                                                  selectType='CloseClose',
                                                  fromMysql=False,
                                                  useCache=False,
-                                                 fields=['OCDay1',
-                                                         'CCDay1',
-                                                         'OCDay10',
-                                                         'OCDay1Gap1',
-                                                         'CCDay1Gap1',
-                                                         'OCDay1Gap2',
-                                                         'CCDay1Gap2',
-                                                         'OCDay1Gap3',
-                                                         'CCDay1Gap3',
-                                                         'OCDay1Gap4',
-                                                         'CCDay1Gap4'])
+                                                 fields=responseFields)
         # 计算因子 统计量
         factorIndicators = self.testsObj.factor_indicators_section(factorScores=factorScores,
                                                                    stockRets=stockResponse,

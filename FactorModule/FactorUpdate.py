@@ -14,6 +14,7 @@ def update_factors(factorDefPath, factorDataPath, factorList=None, startOver=Tru
 
     update.startOver = startOver
     update.fctDataPath = factorDataPath
+    update.useCache = len(factorList) > 1
 
     factorPkg = factorDefPath.split('\\')[-1]
 

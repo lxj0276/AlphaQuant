@@ -31,6 +31,19 @@ class ALIAS_FIELDS:         # 基础数据字段标记
     ADJFCT = 'S_DQ_ADJFACTOR'
     STSTAT = 'TYPE_ST'
 
+class ALIAS_RESPONSE:
+    OC1 = 'OCDay1'
+    CC1 = 'CCDay1'
+    OC10 = 'OCDay10'
+    OCG1 = 'OCDay1Gap1'
+    CCG1 = 'CCDay1Gap1'
+    OCG2 = 'OCDay1Gap2'
+    CCG2 = 'CCDay1Gap2'
+    OCG3 = 'OCDay1Gap3'
+    CCG3 = 'CCDay1Gap3'
+    OCG4 = 'OCDay1Gap4'
+    CCG4 = 'CCDay1Gap4'
+
 class ALIAS_STATUS:        # 状态字段标记
     NOTRD = 'NOTRADE'
     PNOTRD = 'PRENOTRADE'

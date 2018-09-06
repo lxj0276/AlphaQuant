@@ -17,6 +17,8 @@ from DataReaderModule.Constants import ALIAS_FIELDS, ALIAS_TABLES,DatabaseNames,
 class Calendar:
 
     _tradeDates = None
+    HeadDate = None
+    TailDate = None
 
     def __init__(self):
         cfp = cp.ConfigParser()
@@ -34,6 +36,8 @@ class Calendar:
             tDates = pd.DataFrame(mysqlCursor.fetchall(), columns=[ALIAS_FIELDS.DATE])
             tDates.sort_values(by = ALIAS_FIELDS.DATE, inplace=True)
             Calendar._tradeDates = tDates.values[:,0]
+            Calendar.HeadDate = Calendar._tradeDates[0]
+            Calendar.TailDate = Calendar._tradeDates[-1]
 
     def _calibrate_date(self, currDate, currSide='left'):
         currDate = str(currDate)

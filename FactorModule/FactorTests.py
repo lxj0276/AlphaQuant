@@ -1,5 +1,6 @@
 #coding=utf8
 __author__ = 'wangjp'
+
 import time
 import numpy as np
 import pandas as pd
@@ -32,8 +33,8 @@ class FactorTests:
         joined = x.join(y, how='inner')
         xy = pd.DataFrame(joined[xName].values*joined[yName].values, columns=yName, index=joined.index)
         validStkCnt = joined[xName].groupby(level=alf.DATE, as_index=True, sort=False).count()
-        validStkCnt.columns = ['stkCnt']
-        if indicator in ('beta','IC','rankIC'):
+        validStkCnt.columns = ['stkCnt']        # 尚未考虑 收益率为NaN 的情况，不同收益率对应天数可能不同
+        if indicator in ('beta', 'IC', 'rankIC'):
             groupObj = joined.groupby(level=alf.DATE, as_index=True, sort=False)
             meanXY = xy.groupby(level=alf.DATE, as_index=True, sort=False).mean()
             # zscore 均值为0 标准差1, 适用于 beta ic
