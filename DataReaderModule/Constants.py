@@ -55,6 +55,13 @@ class ALIAS_STATUS:        # ×´Ì¬×Ö¶Î±ê¼Ç
     INSFLST = 'INSFLIST'
     INSFRSM = 'INSFRESUM'
 
+class ALIAS_INDICATORS:
+    BETA = 'beta'
+    IC = 'IC'
+    RKIC = 'rankIC'
+    GPIC = 'groupIC'
+    TBDF = 'tbdf'
+
 NO_QUICK = ['ASHAREEODPRICES', 'FEATURES_FILTER', 'RESPONSE_FILTER', 'RESPONSE']
 
 QuickTableFieldsDict = {

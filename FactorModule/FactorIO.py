@@ -28,7 +28,6 @@ class FactorIO:
         self.fctIndicatorFile = 'factor_indicators.h5'
         self.calendar = Calendar()
 
-
     def read_factor_scores(self,
                            factorName,
                            scoreTypes=None,
@@ -100,7 +99,7 @@ class FactorIO:
     def read_factor_indicators(self,
                                factorName,
                                indicators,
-                               fields=None,
+                               responses=None,
                                headDate=None,
                                tailDate=None,
                                dateList=None):
@@ -127,14 +126,14 @@ class FactorIO:
             dateList = [str(tdt) for tdt in dateList]
         fctIndicatorsPath = os.path.join(self.factorDataPath, factorName, self.fctIndicatorFile)
         whereLines = None if readAll else '{0} in ({1})'.format(alf.DATE, ','.join(dateList))
-        if fields is None:
-            fields = [alr.OC1, alr.OC10, alr.OCG1, alr.OCG2, alr.OCG3, alr.OCG4, alr.CCG1, alr.CCG2, alr.CCG3, alr.CCG4]
+        if responses is None:
+            responses = [alr.OC1, alr.OC10, alr.OCG1, alr.OCG2, alr.OCG3, alr.OCG4, alr.CCG1, alr.CCG2, alr.CCG3, alr.CCG4]
         factorIndicators = {}
         for indType in indicators:
             factorIndicators[indType] = pd.read_hdf(path_or_buf=fctIndicatorsPath,
                                                     key=indType,
                                                     where=whereLines,
-                                                    columns=fields,
+                                                    columns=responses,
                                                     mode='r')
         return factorIndicators
 

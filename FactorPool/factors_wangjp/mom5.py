@@ -20,7 +20,7 @@ class Factor(FactorBase):
         s = time.time()
         needData = self.needData                                # 计算所需数据
         needData.loc[needData[t.TRDSTAT].isin([5,6]), t.PCTCHG] = np.nan        # 将停牌对应 股票收益率 设为 NaN
-        factor = Calculator.Sum(x=needData[t.PCTCHG], num=5)        # 计算5日动量
+        factor = -Calculator.Sum(x=needData[t.PCTCHG], num=5)        # 计算5日动量
         factor.columns = [self.factorName]                          # 因子计算结果应该只有一列， 如果此处报错 请检查因子定义
         print('factor {0} done with {1} seconds'.format(self.factorName, time.time() - s))
         return factor

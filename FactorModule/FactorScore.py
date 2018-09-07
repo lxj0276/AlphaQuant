@@ -29,12 +29,12 @@ class FactorScores:
         outScores['_'.join([factorName, 'raw'])] = rawFactor.loc[~filterX, :]
         for tp in scoreTypes:
             if tp == 'rank':     # 使用 pct 避免过多 nan 对直接排名 的影响
-                rankFactor = rawFactor.groupby(level=alf.DATE,sort=False,as_index=False,group_keys=False).rank(na_option='keep', pct=False)
+                rankFactor = rawFactor.groupby(level=alf.DATE,sort=False,as_index=False,group_keys=False).rank(na_option='keep', pct=False, ascending=True)
                 rankMax = rankFactor.groupby(level=alf.DATE,sort=False,as_index=True).max()     # 直接在上设置pct=True在全NaN时会报除0错误
                 fctScore = rankFactor/rankMax
             elif tp == 'zscore':
                 if outliersOut:     # 取极值处理
-                    c = 1.5 # 1.483 ~ 3sigma, 采用稍大尽量少过滤一些极端值
+                    c = 2 # 1.483 ~ 3sigma, 采用稍大尽量少过滤一些极端值
                     rawFactor = rawFactor.copy(deep=True)
                     medianFactor = rawFactor.groupby(level=alf.DATE,sort=False).median()
                     madE = c*(rawFactor - medianFactor).abs().groupby(level=alf.DATE,sort=False).median()

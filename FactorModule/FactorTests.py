@@ -9,7 +9,7 @@ from DataReaderModule.Constants import ALIAS_FIELDS as alf
 
 class FactorTests:
     """
-    用于 因子检验
+    用于 因子截面检验
     """
 
     def __init__(self):
@@ -27,8 +27,8 @@ class FactorTests:
         xName = x.columns
         yName = y.columns
         if ('rank' in indicator) or ('Rank' in indicator):     # 需要对 收益率 进行排序
-            yRank = y.groupby(level=alf.DATE, as_index=False, sort=False).rank(pct=False)
-            yMax = y.groupby(level=alf.DATE, as_index=True, sort=False).max()
+            yRank = y.groupby(level=alf.DATE, as_index=False, sort=False).rank(pct=False, ascending=True)
+            yMax = yRank.groupby(level=alf.DATE, as_index=True, sort=False).max()
             y = yRank/yMax
         joined = x.join(y, how='inner')
         xy = pd.DataFrame(joined[xName].values*joined[yName].values, columns=yName, index=joined.index)
@@ -50,12 +50,12 @@ class FactorTests:
                 else:
                     meanX = groupObj[xName].mean()
                     stdX = groupObj[xName].std(ddof=0)
-                    indiResult = (meanX.values*meanY.values - meanXY.values)/(stdX.values*stdY.values)
+                    indiResult = (meanXY.values - meanX.values*meanY.values)/(stdX.values*stdY.values)
         elif indicator in ('weightedIC','weightedRankIC'):
             pass
         elif indicator in ('tbdf',):
-            topRet = joined[(joined[xName]<=0.1).values][yName].groupby(level=alf.DATE, as_index=True, sort=False).mean()
-            botRet = joined[(joined[xName]>=0.9).values][yName].groupby(level=alf.DATE, as_index=True, sort=False).mean()
+            topRet = joined[(joined[xName]>=0.9).values][yName].groupby(level=alf.DATE, as_index=True, sort=False).mean()
+            botRet = joined[(joined[xName]<=0.1).values][yName].groupby(level=alf.DATE, as_index=True, sort=False).mean()
             indiResult = (topRet - botRet).values
         elif indicator in ('groupIC',):
             joined.reset_index(inplace=True)
