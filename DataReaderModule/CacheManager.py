@@ -37,6 +37,7 @@ class CacheManager:
         self.logger.info('')
         self._cacheCalendar()
         self._cacheStockCounts()
+        self._nan_rep = 10      # 用于替换数据中 允许存在的 NaN 避免stock count 时出现短缺
 
     def _cacheCalendar(self):
         if CacheManager._calendar is None:
@@ -73,6 +74,8 @@ class CacheManager:
                     self.logger.info('{0} : cache level {1} , will be saved in cache'.format(tableName, level))
                     dataIndex = tableData.index.values
                     dataFields = [col for col in tableData.columns if col not in indexFields]   # by col
+                    if tableName in ('RESPONSE',):      # 处理 response 中， 允许存在的 NaN 的情况
+                        tableData = tableData.fillna(self._nan_rep)
                     stockCounts = tableData.groupby(level=ALIAS_FIELDS.DATE).count()
                     if tableName not in self._tableSaved:   # 该表格数据第一次被缓存
                         self._tableSaved[tableName] = tableData

@@ -159,6 +159,8 @@ class DataReader:
                         dateList = self.calendar.tdaysbetween(headDate=headDate, tailDate=tailDate)
                     cachedIdx = (dateSlice,slice(None)) if stkList is None else (dateSlice, stkList)
                     cachedData = self.cacheManager._tableSaved[table].loc[cachedIdx, cachedFields]    # 不存在的日期将不会被取出
+                    if table in ('RESPONSE',):  # 处理 response 中， 允许存在的 NaN 的情况
+                        cachedData = cachedData.replace(to_replace=self.cacheManager._nan_rep, value = np.nan)
                     # 检查 需要提取的 字段 缓存的日期情况
                     partialFields = []
                     for fld in cachedFields:

@@ -19,10 +19,10 @@ import os
 
 
 ind = True
-with pd.HDFStore(r'D:\AlphaQuant\FactorPool\factors_data\mom5\factor_indicators.h5',complevel=4, complib='blosc') as h5:
+with pd.HDFStore(r'D:\AlphaQuant\FactorPool\factors_data\mom5\factor_scores.h5',complevel=4, complib='blosc') as h5:
     print(h5.info())
     # data = h5.select(key='zscore',start=0)
-    data = h5.select(key='beta', start=0)
+    data = h5.select(key='mom5', start=-1)
     # data = h5.select(key='rank',start=4749300)
     t=1
 

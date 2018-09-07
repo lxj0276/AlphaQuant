@@ -28,6 +28,12 @@ class FactorIO:
         self.fctIndicatorFile = 'factor_indicators.h5'
         self.calendar = Calendar()
 
+    def factor_last_update(self, factorName):
+        factorScorePath = os.path.join(self.factorDataPath, factorName, self.fctScoreFile)
+        lastRow = pd.read_hdf(factorScorePath, key=factorName, start=-1, mode='r') # type: pd.DataFrame
+        lastRow.reset_index(inplace=True)
+        return lastRow[alf.DATE].values[0]
+
     def read_factor_scores(self,
                            factorName,
                            scoreTypes=None,
@@ -88,12 +94,12 @@ class FactorIO:
             scoreType = fctSC.split('_')[-1]
             factorScores[fctSC].columns = [scoreType]
             allFactorScores = factorScores[fctSC] if allFactorScores is None else allFactorScores.join(factorScores[fctSC], how='outer')
-            allFactorScores.to_hdf(path_or_buf=os.path.join(factorStorePath, self.fctScoreFile),
-                                   key=factorName,
-                                   mode='w' if ifExist == 'replace' else 'a',
-                                   format='table',
-                                   append=True,
-                                   complevel=4)
+        allFactorScores.to_hdf(path_or_buf=os.path.join(factorStorePath, self.fctScoreFile),
+                               key=factorName,
+                               mode='w' if ifExist == 'replace' else 'a',
+                               format='table',
+                               append=True,
+                               complevel=4)
         self.logger.info('factor {0} updated with {1} seconds'.format(factorName, time.time() - start))
 
     def read_factor_indicators(self,
@@ -164,5 +170,6 @@ class FactorIO:
 
 if __name__=='__main__':
     obj = FactorIO(fctDataPath=r'D:\AlphaQuant\FactorPool\factors_data')
-    # obj.read_factor_indicators(factorName='mom5',indicators=['beta','IC','groupIC'], fields=[alr.OC1,alr.OCG1])
-    obj.read_factor_scores(factorName='mom5',)
+    t = obj.read_factor_indicators(factorName='mom5',indicators=['beta','IC','groupIC'], responses=[alr.OC1,alr.OCG1])
+    # obj.read_factor_scores(factorName='mom5',)
+    # print(obj.factor_last_update('mom5'))
