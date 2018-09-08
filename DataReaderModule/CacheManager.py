@@ -23,15 +23,20 @@ class CacheManager:
     _calendar = None
     _stockCounts = None   # 存储当前所有的 日期 股票 对组合
 
-    def __init__(self, basePath=None, cacheLevel='Level1'):
+    def __init__(self, basePath=None, cacheLevel='Level1',dateSource='h5'):
         if basePath is None:
             basePath = os.path.join(rootPath, 'DataReaderModule')
         cfp = cp.ConfigParser()
-        cfp.read(os.path.join(rootPath, 'Configs', 'loginInfo.ini'))
-        loginfoMysql = dict(cfp.items('Mysql'))
-        self.connMysqlRead = mysql.connector.connect(user=loginfoMysql['user'],
-                                                     password=loginfoMysql['password'],
-                                                     host=loginfoMysql['host'])
+        self.dateSource = dateSource
+        if self.dateSource=='mysql':
+            cfp.read(os.path.join(rootPath, 'Configs', 'loginInfo.ini'))
+            loginfoMysql = dict(cfp.items('Mysql'))
+            self.connMysqlRead = mysql.connector.connect(user=loginfoMysql['user'],
+                                                         password=loginfoMysql['password'],
+                                                         host=loginfoMysql['host'])
+        else:
+            cfp.read(os.path.join(rootPath, 'Configs', 'dataPath.ini'))
+            self.h5File = os.path.join(cfp.get('data','h5'),'{}.h5'.format(ALIAS_TABLES.DAILYCNT))
         self._cacheLevel = cacheLevel   # 可以被缓存的最低级别
         self.logger = Logger(logPath=os.path.join(basePath, 'log')).get_logger(loggerName=__name__, logName='cache_manager')
         self.logger.info('')
@@ -46,12 +51,18 @@ class CacheManager:
 
     def _cacheStockCounts(self):
         if CacheManager._stockCounts is None:
-            mysqlCursor = self.connMysqlRead.cursor()
-            mysqlCursor.execute('USE {}'.format(DatabaseNames.MysqlDaily))
-            sqlLines = 'SELECT {0},{1} FROM {2}'.format(ALIAS_FIELDS.DATE,ALIAS_FIELDS.STKCNT,ALIAS_TABLES.DAILYCNT)
-            mysqlCursor.execute(sqlLines)
-            CacheManager._stockCounts = pd.DataFrame(mysqlCursor.fetchall(), columns=[ALIAS_FIELDS.DATE,ALIAS_FIELDS.STKCNT])
-            CacheManager._stockCounts.set_index(ALIAS_FIELDS.DATE, inplace=True)
+            if self.dateSource=='mysql':
+                mysqlCursor = self.connMysqlRead.cursor()
+                mysqlCursor.execute('USE {}'.format(DatabaseNames.MysqlDaily))
+                sqlLines = 'SELECT {0},{1} FROM {2}'.format(ALIAS_FIELDS.DATE,ALIAS_FIELDS.STKCNT,ALIAS_TABLES.DAILYCNT)
+                stkCounts = pd.read_sql(con=self.connMysqlRead, sql=sqlLines)
+                stkCounts.sort_values(by=ALIAS_FIELDS.DATE, inplace=True)
+                stkCounts.set_index(ALIAS_FIELDS.DATE, inplace=True)
+            else:
+                stkCounts = pd.read_hdf(path_or_buf=self.h5File,
+                                        key=ALIAS_TABLES.DAILYCNT,
+                                        mode='r')
+            CacheManager._stockCounts = stkCounts
             self.logger.info('Stock counts cached')
 
     def checkinCache(self, tableName, tableData, sort=True):

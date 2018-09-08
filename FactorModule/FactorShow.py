@@ -82,5 +82,5 @@ class FactorShow:
 
 if __name__=='__main__':
     obj = FactorShow(r'D:\AlphaQuant\FactorPool\factors_data')
-    obj.show_curves(factorName='positiveMom5', indicator='rankIC', responses=[alr.OC1,alr.CCG1,alr.CCG2])
-    # obj.show_statistics(factorName='mom5',outPath='.')
+    obj.show_curves(factorName='positiveMom5', indicator='tbdf', responses=[alr.OC1,alr.CCG1,alr.OCG1])
+    # obj.show_statistics(factorName='positiveMom5',outPath='D:\AlphaQuant')

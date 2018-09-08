@@ -32,7 +32,7 @@ class FactorBase:
             FactorBase.factorIO = FactorIO(fctDataPath=update.fctDataPath)
         if FactorBase.dataReader is None:
             FactorBase.dataReader = DataReader(cacheLevel='Level1', connectRemote=False)
-        self.headDate = self.dataReader.calendar._calibrate_date(currDate=20000101,currSide='right')
+        self.headDate = self.dataReader.calendar._calibrate_date(currDate=20180101,currSide='right')
         self.tailDate = self.dataReader.calendar._tradeDates[-1]
 
     def factor_definition(self):

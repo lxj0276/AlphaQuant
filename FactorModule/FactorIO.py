@@ -53,6 +53,8 @@ class FactorIO:
         :return:
         """
         readAll = False
+        headDate = self.calendar.tdaysoffset(num=0, currDates=headDate) if headDate is not None else headDate
+        tailDate = self.calendar.tdaysoffset(num=0, currDates=tailDate) if tailDate is not None else tailDate
         if dateList is None:
             if headDate is None and tailDate is None:   # 将读取全部日期
                 readAll = True
@@ -62,8 +64,8 @@ class FactorIO:
                 dateList = self.calendar.tdaysbetween(headDate=headDate,
                                                       tailDate=tailDate,
                                                       selectType='CloseClose')
-        else:
-            dateList = [str(tdt) for tdt in dateList]
+        if dateList is not None:
+            dateList = ['"{}"'.format(tdt) for tdt in dateList]
         scoreTypes = ['raw','rank','zscore'] if scoreTypes is None else scoreTypes
         factorScorePath = os.path.join(self.factorDataPath, factorName, self.fctScoreFile)
         whereLines = None if readAll else '{0} in ({1})'.format(alf.DATE, ','.join(dateList))
@@ -119,6 +121,8 @@ class FactorIO:
         :return:
         """
         readAll = False
+        headDate = self.calendar.tdaysoffset(num=0, currDates=headDate, currSide='right') if headDate is not None else headDate
+        tailDate = self.calendar.tdaysoffset(num=0, currDates=tailDate, currSide='right') if tailDate is not None else tailDate
         if dateList is None:
             if headDate is None and tailDate is None:   # 将读取全部日期
                 readAll = True
@@ -128,10 +132,10 @@ class FactorIO:
                 dateList = self.calendar.tdaysbetween(headDate=headDate,
                                                       tailDate=tailDate,
                                                       selectType='CloseClose')
-        else:
-            dateList = [str(tdt) for tdt in dateList]
+        if dateList is not None:
+            dateList = ['"{}"'.format(tdt) for tdt in dateList]
         fctIndicatorsPath = os.path.join(self.factorDataPath, factorName, self.fctIndicatorFile)
-        whereLines = None if readAll else '{0} in ({1})'.format(alf.DATE, ','.join(dateList))
+        whereLines = None if readAll else '{0} in ({1})'.format('index', ','.join(dateList))
         if responses is None:
             responses = [alr.OC1, alr.OC10, alr.OCG1, alr.OCG2, alr.OCG3, alr.OCG4, alr.CCG1, alr.CCG2, alr.CCG3, alr.CCG4]
         factorIndicators = {}
@@ -170,6 +174,6 @@ class FactorIO:
 
 if __name__=='__main__':
     obj = FactorIO(fctDataPath=r'D:\AlphaQuant\FactorPool\factors_data')
-    t = obj.read_factor_indicators(factorName='mom5',indicators=['beta','IC','groupIC'], responses=[alr.OC1,alr.OCG1])
-    # obj.read_factor_scores(factorName='mom5',)
+    # t = obj.read_factor_indicators(factorName='mom5',indicators=['beta','IC','groupIC'], responses=[alr.OC1,alr.OCG1])
+    t = obj.read_factor_scores(factorName='positiveMom5',headDate=20180801)
     # print(obj.factor_last_update('mom5'))

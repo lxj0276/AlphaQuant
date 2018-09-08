@@ -20,20 +20,32 @@ class Calendar:
     HeadDate = None
     TailDate = None
 
-    def __init__(self):
+    def __init__(self, dateSource='h5'):
         cfp = cp.ConfigParser()
-        cfp.read(os.path.join(rootPath,'Configs', 'loginInfo.ini'))
-        loginfoMysql = dict(cfp.items('Mysql'))
-        self.connMysqlRead = mysql.connector.connect(user=loginfoMysql['user'],
-                                                     password=loginfoMysql['password'],
-                                                     host=loginfoMysql['host'])
+        self.dateSource = dateSource
+        if self.dateSource=='mysql':
+            cfp.read(os.path.join(rootPath, 'Configs', 'loginInfo.ini'))
+            loginfoMysql = dict(cfp.items('Mysql'))
+            self.connMysqlRead = mysql.connector.connect(user=loginfoMysql['user'],
+                                                         password=loginfoMysql['password'],
+                                                         host=loginfoMysql['host'])
+        else:
+            cfp.read(os.path.join(rootPath, 'Configs', 'dataPath.ini'))
+            self.h5File = os.path.join(cfp.get('data','h5'),'{}.h5'.format(ALIAS_TABLES.DAILYCNT))
         self._load_trade_dates()
 
     def _load_trade_dates(self):
         if Calendar._tradeDates is None:
-            mysqlCursor = self.connMysqlRead.cursor()
-            mysqlCursor.execute('SELECT * FROM {0}.{1}'.format(DatabaseNames.MysqlDaily, ALIAS_TABLES.TRDDATES))
-            tDates = pd.DataFrame(mysqlCursor.fetchall(), columns=[ALIAS_FIELDS.DATE])
+            if self.dateSource=='mysql':
+                mysqlCursor = self.connMysqlRead.cursor()
+                mysqlCursor.execute('SELECT * FROM {0}.{1}'.format(DatabaseNames.MysqlDaily, ALIAS_TABLES.TRDDATES))
+                tDates = pd.DataFrame(mysqlCursor.fetchall(), columns=[ALIAS_FIELDS.DATE])
+            else:
+                tDates = pd.read_hdf(path_or_buf=self.h5File,
+                                     key=ALIAS_TABLES.DAILYCNT,
+                                     columns=[ALIAS_FIELDS.DATE],
+                                     mode='r')
+                tDates.reset_index(inplace=True)
             tDates.sort_values(by = ALIAS_FIELDS.DATE, inplace=True)
             Calendar._tradeDates = tDates.values[:,0]
             Calendar.HeadDate = Calendar._tradeDates[0]
