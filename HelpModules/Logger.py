@@ -11,6 +11,8 @@ class Logger:
 
     def __init__(self, logPath):
         self._logPath = logPath
+        if not os.path.exists(self._logPath):
+            os.mkdir(self._logPath)
 
     def get_logger(self,loggerName, logName, logDate=None):
         logDate = dt.datetime.today().strftime('%Y%m%d') if logDate is None else logDate
