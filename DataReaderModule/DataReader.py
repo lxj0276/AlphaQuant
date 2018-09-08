@@ -39,10 +39,10 @@ class DataReader:
         cfp.read(os.path.join(rootPath,'Configs','dataPath.ini'))
         self.h5Path = cfp.get('data', 'h5')
         cfp.read(os.path.join(rootPath,'Configs', 'loginInfo.ini'))
-        loginfoMysql = dict(cfp.items('Mysql'))
-        self.connMysqlRead = mysql.connector.connect(user=loginfoMysql['user'],
-                                                     password=loginfoMysql['password'],
-                                                     host=loginfoMysql['host'])
+        # loginfoMysql = dict(cfp.items('Mysql'))
+        # self.connMysqlRead = mysql.connector.connect(user=loginfoMysql['user'],
+        #                                              password=loginfoMysql['password'],
+        #                                              host=loginfoMysql['host'])
         self.connectRemote = connectRemote
         if self.connectRemote:
             loginfoWind = dict(cfp.items('Wind'))

@@ -22,6 +22,8 @@ class FactorIO:
         if basePath is None:
             basePath = os.path.join(rootPath,'FactorModule')
         self.factorDataPath = fctDataPath
+        if not os.path.exists(self.factorDataPath):
+            os.mkdir(self.factorDataPath)
         self.logger = Logger(logPath=os.path.join(basePath,'log')).get_logger(loggerName=__name__, logName='factorIO_log')
         self.logger.info('')
         self.fctScoreFile = 'factor_scores.h5'
