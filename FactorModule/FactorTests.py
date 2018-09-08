@@ -39,8 +39,6 @@ class FactorTests:
             meanXY = xy.groupby(level=alf.DATE, as_index=True, sort=False).mean()
             # zscore 均值为0 标准差1, 适用于 beta ic
             if indicator in ('beta',):
-                # varX = groupObj[xName].var(ddof=0)
-                # indiResult = (meanXY.values - meanX.values*meanY.values)/varX.values
                 indiResult = meanXY.values
             else:
                 meanY = groupObj[yName].mean()
@@ -51,8 +49,6 @@ class FactorTests:
                     meanX = groupObj[xName].mean()
                     stdX = groupObj[xName].std(ddof=0)
                     indiResult = (meanXY.values - meanX.values*meanY.values)/(stdX.values*stdY.values)
-        elif indicator in ('weightedIC','weightedRankIC'):
-            pass
         elif indicator in ('tbdf',):
             topRet = joined[(joined[xName]>=0.9).values][yName].groupby(level=alf.DATE, as_index=True, sort=False).mean()
             botRet = joined[(joined[xName]<=0.1).values][yName].groupby(level=alf.DATE, as_index=True, sort=False).mean()
@@ -72,7 +68,6 @@ class FactorTests:
             raise NotImplementedError
         indicatorsOut = pd.DataFrame(indiResult, columns=yName, index=validStkCnt.index)
         indicatorsOut = validStkCnt.join(indicatorsOut)
-
         print('{0} calculated with {1} seconds'.format(indicator, time.time()-start))
         return indicatorsOut
 

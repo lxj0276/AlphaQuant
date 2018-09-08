@@ -92,7 +92,7 @@ class FactorIO:
         factorStorePath = os.path.join(self.factorDataPath,factorName)
         if not os.path.exists(factorStorePath):
             os.mkdir(factorStorePath)
-        self.logger.info('updating factor {}...'.format(factorName))
+        self.logger.info('writing factor score {}...'.format(factorName))
         allFactorScores = None
         for fctSC in factorScores:
             scoreType = fctSC.split('_')[-1]
@@ -104,7 +104,7 @@ class FactorIO:
                                format='table',
                                append=True,
                                complevel=4)
-        self.logger.info('factor {0} updated with {1} seconds'.format(factorName, time.time() - start))
+        self.logger.info('factor score {0} finished writing with {1} seconds'.format(factorName, time.time() - start))
 
     def read_factor_indicators(self,
                                factorName,
@@ -160,7 +160,7 @@ class FactorIO:
         factorStorePath = os.path.join(self.factorDataPath,factorName)
         if not os.path.exists(factorStorePath):
             os.mkdir(factorStorePath)
-        self.logger.info('updating factor {}...'.format(factorName))
+        self.logger.info('writing factor indicators {}...'.format(factorName))
         first = True
         for indType in factorIndicators:
             factorIndicators[indType].to_hdf(path_or_buf=os.path.join(factorStorePath, self.fctIndicatorFile),
@@ -171,7 +171,7 @@ class FactorIO:
                                              complevel=4)
             first = False
             print(indType,' updated')
-        self.logger.info('factor {0} updated with {1} seconds'.format(factorName, time.time() - start))
+        self.logger.info('factor indicators {0} finished writing with {1} seconds'.format(factorName, time.time() - start))
 
 
 if __name__=='__main__':

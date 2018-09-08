@@ -10,42 +10,54 @@ import re
 import os
 
 import threading
-
-# s = time.time()
-# b = pd.DataFrame({'a':range(10),'b':range(1,11),'c':range(10)})
-# b.set_index(['a','b'], inplace=True)
-# print(b)
-
-# b.to_hdf('test.h5',key='test',mode='a',format='table')
-
-
-# ind = True
-# with pd.HDFStore(r'D:\AlphaQuant\FactorPool\factors_data\mom5\factor_scores.h5',complevel=4, complib='blosc') as h5:
-#     print(h5.info())
-#     # data = h5.select(key='zscore',start=0)
-#     data = h5.select(key='mom5', start=-1)
-#     # data = h5.select(key='rank',start=4749300)
+import asyncio
+import multiprocessing as mlp
 
 
 def writedata(name, data):
     data.to_hdf(name,key='test',format='table',mode='w')
 
-data = pd.DataFrame(np.random.rand(100000,300))
+if __name__=='__main__':
 
-start = time.time()
-for dumi in range(10):
-    name = 'data{}.h5'.format(dumi)
-    writedata(name, data)
-print(time.time() - start)
+    data = pd.DataFrame(np.random.rand(100,30))
 
-start = time.time()
-threads = []
-for dumi in range(10):
-    name = 'data{}.h5'.format(dumi)
-    threads.append(threading.Thread(target=writedata, args=[name, data]))
-for dumi in range(10):
-    threads[dumi].start()
-print(1)
-for dumi in range(10):
-    threads[dumi].join()
-print(time.time() - start)
+    start1 = time.time()
+    for dumi in range(10000):
+        name = 'data{}.h5'.format(dumi)
+        writedata(os.path.join(r'C:\Users\Administrator\Desktop\test',name), data)
+    print('normal', time.time() - start1)
+
+    pool = mlp.Pool(3)
+    start1 = time.time()
+    for dumi in range(10000):
+        name = 'data{}.h5'.format(dumi)
+        pool.apply_async(func=writedata, args=[os.path.join(r'C:\Users\Administrator\Desktop\test1',name), data])
+    pool.close()
+    pool.join()
+    print('multiprocess',time.time() - start1)
+
+# start = time.time()
+# threads = []
+# for dumi in range(10):
+#     name = 'data{}.h5'.format(dumi)
+#     threads.append(threading.Thread(target=writedata, args=[os.path.join(r'.\test',name), data]))
+# for dumi in range(10):
+#     threads[dumi].start()
+# print(1)
+# for dumi in range(10):
+#     threads[dumi].join()
+# print(time.time() - start)
+
+# async def writedata(name, data):
+#     data.to_hdf(name,key='test',format='table',mode='w')
+#
+# tasks = []
+# for dumi in range(10):
+#     name = 'data{}.h5'.format(dumi)
+#     crou = writedata(name, data)
+#     tasks.append(asyncio.ensure_future(crou))
+#
+# start = time.time()
+# loop = asyncio.get_event_loop()
+# loop.run_until_complete(asyncio.wait(tasks))
+# print(time.time() - start)

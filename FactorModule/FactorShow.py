@@ -44,7 +44,7 @@ class FactorShow:
         xtickSteps = range(0, indSingle.shape[0] - 1, stepSize)
         plt.xticks(xtickSteps, indSingle.index.values[xtickSteps], rotation=70)
         plt.legend(loc='upper left')
-        plt.title('CUMSUM_{0}'.format(indicator))
+        plt.title('{0} : CUMSUM_{1}'.format(factorName, indicator))
         plt.show()
 
     def show_statistics(self, factorName, indicators = None, responses=None, headDate=None, tailDate=None, outPath=None):
