@@ -151,23 +151,6 @@ class UpdaterOrigin:
             mysqlCursor.execute('SELECT MAX(TRADE_DT) FROM {}'.format(tableName))
             latestDate = mysqlCursor.fetchall()[0][0]
         else:
-            # self.logger.info('{0} : table {1} does not exist in db {2}, will be created from local file'.
-            #                  format(funcName,tableName,dbName))
-            # # 从本地文件读入
-            # tradeInfo = pd.read_csv(r'.\tradeData.csv', encoding='gbk')
-            # tradeInfo.sort_values(by=['TRADE_DT', 'S_INFO_WINDCODE'], inplace=True)
-            # tradeInfo.set_index(['TRADE_DT', 'S_INFO_WINDCODE'], inplace=True)
-            # tradeInfo['S_DQ_PCTCHANGE'] = tradeInfo['S_DQ_PCTCHANGE'] / 100
-            # tradeInfo['S_DQ_TRADESTATUS'] = tradeInfo['S_DQ_TRADESTATUS'].map(statDict)
-            # pd.io.sql.to_sql(tradeInfo,
-            #                  name=tableName,
-            #                  con=self.connMysqlWrite,
-            #                  if_exists='replace',
-            #                  chunksize=2000,
-            #                  dtype=FieldTypeDict)
-            # # 重新提取最近更新日期
-            # mysqlCursor.execute('SELECT MAX(TRADE_DT) FROM {}'.format(tableName))
-            # latestDate = mysqlCursor.fetchall()[0][0]
             latestDate = 0
             self.logger.info('{0} : table {1} does not exist, will be created'.format(funcName, tableName))
         self.logger.info('{0} : last update for table {1} : {2}'.format(funcName, tableName, latestDate))
@@ -399,8 +382,7 @@ if __name__=='__main__':
     obj.update_basic_info()     # 其中 trade_dates 表
     obj.update_trade_info()
     obj.update_st_info()
-    obj.update_shares_info()
-    obj.patch_next_anndt(tableName='ASHARECAPITALIZATION')
     obj.update_holders_info()
     obj.patch_next_anndt(tableName='ASHAREFLOATHOLDER')
-
+    obj.update_shares_info()
+    obj.patch_next_anndt(tableName='ASHARECAPITALIZATION')

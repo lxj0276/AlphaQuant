@@ -31,7 +31,7 @@ class Calendar:
                                                          host=loginfoMysql['host'])
         else:
             cfp.read(os.path.join(rootPath, 'Configs', 'dataPath.ini'))
-            self.h5File = os.path.join(cfp.get('data','h5'),'{}.h5'.format(ALIAS_TABLES.DAILYCNT))
+            self.h5File = os.path.join(cfp.get('data','h5'),'{}.h5'.format(ALIAS_TABLES.TRDDATES))
         self._load_trade_dates()
 
     def _load_trade_dates(self):
@@ -42,10 +42,9 @@ class Calendar:
                 tDates = pd.DataFrame(mysqlCursor.fetchall(), columns=[ALIAS_FIELDS.DATE])
             else:
                 tDates = pd.read_hdf(path_or_buf=self.h5File,
-                                     key=ALIAS_TABLES.DAILYCNT,
+                                     key=ALIAS_TABLES.TRDDATES,
                                      columns=[ALIAS_FIELDS.DATE],
                                      mode='r')
-                tDates.reset_index(inplace=True)
             tDates.sort_values(by = ALIAS_FIELDS.DATE, inplace=True)
             Calendar._tradeDates = tDates.values[:,0]
             Calendar.HeadDate = Calendar._tradeDates[0]

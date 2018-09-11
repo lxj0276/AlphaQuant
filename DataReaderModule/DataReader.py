@@ -32,7 +32,7 @@ class DataReader:
     QuickFieldsTableDict = None
 
 
-    def __init__(self, basePath=None, cacheLevel='LEVEL1', connectRemote=False):
+    def __init__(self, basePath=None, cacheLevel='LEVEL1', connectRemote=False,calendarSource='h5'):
         if basePath is None:
             basePath = os.path.join(rootPath, 'DataReaderModule')
         cfp = cp.ConfigParser()
@@ -56,7 +56,7 @@ class DataReader:
             self.logger.info('CacheManager constructed')
         # construct calendar
         if DataReader.calendar is None:
-            DataReader.calendar = Calendar()
+            DataReader.calendar = Calendar(dateSource=calendarSource)
             self.logger.info('Clendar constructed')
         # construct quickFieldsTableDict
         if DataReader.QuickFieldsTableDict is None:

@@ -189,9 +189,26 @@ class UpdaterQuick:
         else:
             self.logger.info('{0} : {1} has no new data to update '.format(funcName, tableName))
 
+    def update_trade_dates_h5(self):
+        funcName = sys._getframe().f_code.co_name
+        tableName = ALIAS_TABLES.TRDDATES
+        # 查看最新数据进度
+        availableDate = self.dataConnector.get_last_available(fast=True)
+        lastUpdt = self.dataConnector.get_last_update(tableName=tableName, isH5=True)
+        if availableDate > str(lastUpdt):
+            sqlLines = 'SELECT * FROM {0} WHERE {1}>{2}'.format(tableName, ALIAS_FIELDS.DATE, lastUpdt)
+            tradeData = pd.read_sql(sql=sqlLines, con=self.dataConnector.connMysqlRead)
+            self.dataConnector.store_table(tableData=tradeData,
+                                           tableName=tableName,
+                                           if_exist='append',
+                                           isH5=True)
+        else:
+            self.logger.info('{0} : {1} has no new data to update '.format(funcName, tableName))
+
 
 if __name__=='__main__':
     obj = UpdaterQuick()
     obj.update_trade_info_h5()
-    obj.update_quick_tables(updateH5=False)
+    obj.update_trade_dates_h5()
     obj.update_quick_tables(updateH5=True)
+    obj.update_quick_tables(updateH5=False)

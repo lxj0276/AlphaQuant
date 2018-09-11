@@ -14,6 +14,11 @@ import asyncio
 import multiprocessing as mlp
 
 
+
+t = pd.read_hdf(r'D:\AlphaQuant\data\update\RESPONSE_UPDATE.h5',key='RESPONSE', where='TRADE_DT>="20180820"')
+
+raise
+
 def writedata(name, data):
     data.to_hdf(name,key='test',format='table',mode='w')
 

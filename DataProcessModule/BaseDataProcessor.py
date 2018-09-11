@@ -251,7 +251,7 @@ class BaseDataProcessor:
             else:
                 idx = pd.IndexSlice
                 startDate = self.calendar.tdaysoffset(1, lastUpdt)
-                updateReturns = stockReturns.loc[idx[startDate:, :], :],
+                updateReturns = stockReturns.loc[idx[startDate:, :], :]
             self.dataConnector.store_table(tableData=updateReturns,
                                            tableName=tableName,
                                            if_exist='append',
@@ -279,13 +279,14 @@ class BaseDataProcessor:
 if __name__=='__main__':
     obj = BaseDataProcessor()
 
-    # obj.update_stock_count(updateH5=False)
-    # obj.update_features_filter(updateH5=False)
-    # obj.update_response_filter(updateH5=False)
-    #
-    # obj.update_stock_count(updateH5=True)
-    obj.update_features_filter(updateH5=True)
-    # obj.update_response_filter(updateH5=True)
+    obj.update_stock_count(updateH5=True)
 
-    # obj.update_response(updateH5=False)
-    # obj.update_response(updateH5=True)
+    obj.update_features_filter(updateH5=True)
+    obj.update_response_filter(updateH5=True)
+    obj.update_response(updateH5=True)
+
+    obj.update_stock_count(updateH5=False)
+    obj.update_features_filter(updateH5=False)
+    obj.update_response_filter(updateH5=False)
+    obj.update_response(updateH5=False)
+

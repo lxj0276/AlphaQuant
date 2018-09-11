@@ -184,7 +184,7 @@ class DataConnector:
         dataColumns = changeData.columns.values
         self.logger.info('{0}: {1} obs to change in table {2} ...'.format(funcName, changeData.shape[0], tableName))
         if isH5:
-            h5UpdateFile = os.path.join(self.h5Update, '{}_UPATE.h5'.format(tableName))       # 存储全部有效数据的 file， 应该截断至changeData前一日
+            h5UpdateFile = os.path.join(self.h5Update, '{}_UPDATE.h5'.format(tableName))       # 存储全部有效数据的 file， 应该截断至changeData前一日
             h5UpdateBack = os.path.join(self.h5Update, '{}_UPDATE_COPY.h5'.format(tableName))
             cpResult = os.system('COPY {0} {1} /Y'.format(h5UpdateFile, h5UpdateBack))  # 拼接有效数据前 前进行数据备份
             assert cpResult == 0, '{0} ： backup h5 table {1} failed'.format(funcName, tableName)
@@ -193,6 +193,7 @@ class DataConnector:
             assert cpResult == 0
             ################   修正待更新数据    ###########################
             try:    # 将 修改数据添加到 有效数据，形成新的 待更新数据
+                changeData.set_index([alf.DATE,alf.STKCD], inplace=True)
                 changeData.to_hdf(path_or_buf=h5UpdateMove,
                                  key=tableName,
                                  mode='a',
@@ -202,7 +203,7 @@ class DataConnector:
                 savedNum = self.get_last_update(tableName=tableName, isH5=True, lastID=True)
                 with pd.HDFStore(h5UpdateMove) as h5Store:
                     lastRowNum = re.search(r'nrows->(\d+)', h5Store.info()).groups()[0]
-                if savedNum==lastRowNum:
+                if savedNum==int(lastRowNum):
                     self.logger.info('{}: new to update file row num correct'.format(funcName))
                 else:
                     raise BaseException('row num miss match!')
