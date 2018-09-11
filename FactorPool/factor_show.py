@@ -8,8 +8,8 @@ from DataReaderModule.Constants import ALIAS_INDICATORS as ali
 
 if __name__=='__main__':
     obj = FactorShow(r'D:\AlphaQuant\FactorPool\factors_data')
-    obj.show_curves(factorName='mom5',
+    obj.show_curves(factorName='wms5',
                     indicator=ali.TBDF,
-                    headDate=20100101,
+                    headDate=20170101,
                     responses=[alr.OC1, alr.CCG1, alr.OCG1, alr.CCG2, alr.OCG2])
     # obj.show_statistics(factorName='positiveMom5',outPath='D:\AlphaQuant')

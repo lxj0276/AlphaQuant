@@ -3,7 +3,7 @@ import unittest
 import pandas as pd
 import numpy as np
 
-from DBReaderModule.Constants import ALIAS_FIELDS
+from DataReaderModule.Constants import ALIAS_FIELDS
 from CalculatorModule.Calculator import Calculator
 
 
@@ -18,7 +18,6 @@ class TestCalculator(unittest.TestCase):
 
     def test_init(self):
         calculator = Calculator()
-        self.assertFalse(calculator._centered)
 
     def test_return_shape(self):
         """
@@ -30,27 +29,51 @@ class TestCalculator(unittest.TestCase):
         simDataY = simDataGen(colnames=('colY',))
         dataShape = simDataX.shape
         # test functions
-        self.assertTrue(np.all(dataShape == calculator.Delay(x=simDataX, num=3,by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.Sumif(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD, condition=simDataX>0).shape))
-        self.assertTrue(np.all(dataShape == calculator.Diff(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.Max(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.Min(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.Mean(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.Sum(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.Var(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.Std(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.Wma(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.Sma(x=simDataX, n=3, m=2, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.Decaylinear(x=simDataX, d=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.Rank(x=simDataX, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.TsToMax(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.TsToMin(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.FindRank(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.Corr(x=simDataX, y=simDataY, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.RegAlpha(x=simDataX, y=simDataY, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.RegBeta(x=simDataX, y=simDataY, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        self.assertTrue(np.all(dataShape == calculator.RegResi(x=simDataX, y=simDataY, num=3, by=ALIAS_FIELDS.STKCD).shape))
-        print('return shape test passed')
+        self.assertTrue(np.all(dataShape == calculator.Delay(x=simDataX, num=3,by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.Sumif(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD, condition=simDataX>0,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.Diff(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.Max(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.Min(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.Mean(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.Sum(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.Var(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.Std(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.Wma(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.Sma(x=simDataX, n=3, m=2, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.Decaylinear(x=simDataX, d=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.Rank(x=simDataX, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.TsToMax(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.TsToMin(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.FindRank(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.Corr(x=simDataX, y=simDataY, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.RegAlpha(x=simDataX, y=simDataY, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.RegBeta(x=simDataX, y=simDataY, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        self.assertTrue(np.all(dataShape == calculator.RegResi(x=simDataX, y=simDataY, num=3, by=ALIAS_FIELDS.STKCD,retDf=True).shape))
+        print('DataFrame return shape test passed')
+
+        self.assertTrue(np.all(dataShape[0] == calculator.Delay(x=simDataX, num=3,by=ALIAS_FIELDS.STKCD).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.Sumif(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD, condition=simDataX>0,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.Diff(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.Max(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.Min(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.Mean(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.Sum(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.Var(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.Std(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.Wma(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.Sma(x=simDataX, n=3, m=2, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.Decaylinear(x=simDataX, d=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.Rank(x=simDataX, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.TsToMax(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.TsToMin(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.FindRank(x=simDataX, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.Corr(x=simDataX, y=simDataY, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.RegAlpha(x=simDataX, y=simDataY, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.RegBeta(x=simDataX, y=simDataY, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        self.assertTrue(np.all(dataShape[0] == calculator.RegResi(x=simDataX, y=simDataY, num=3, by=ALIAS_FIELDS.STKCD,).shape[0]))
+        print('Series return shape test passed')
+
+
 
     def test_return_result(self):
         """

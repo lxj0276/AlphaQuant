@@ -35,7 +35,9 @@ class FactorShow:
                                                       responses=responses,
                                                       headDate=headDate,
                                                       tailDate=tailDate)
-        indSingle = indSingle[indicator].cumsum()
+        indSingle = indSingle[indicator]
+        # indSingle['OCRet2'] = indSingle['OCDay1'] + indSingle['CCDay1Gap1']
+        indSingle = indSingle.cumsum()
         plt.figure(figsize=(20, 13))
         for dumi, col in enumerate(indSingle.columns):
             plt.plot(indSingle[col], label=col, lw=1)
