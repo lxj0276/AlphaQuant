@@ -14,8 +14,9 @@ from sqlalchemy import create_engine
 import pymysql
 pymysql.install_as_MySQLdb()
 
-from DataReaderModule.Constants import ALIAS_TABLES,DatabaseNames,rootPath
 from DataReaderModule.Constants import ALIAS_FIELDS as alf
+from DataReaderModule.Constants import ALIAS_TABLES, DatabaseNames, rootPath
+
 
 
 class DataConnector:
@@ -49,7 +50,7 @@ class DataConnector:
             dbName = self.dbName
         cursor = self.connMysqlRead.cursor()
         cursor.execute('USE {}'.format(dbName))
-        self.logger.info('Switched to db {}'.format(dbName))
+        self.logger.info('Switched to db {} \n'.format(dbName))
 
     def has_table(self, tableName, isH5):
         if isH5:
@@ -99,7 +100,7 @@ class DataConnector:
                     if lastRow.index.nlevels > 1:
                         lastUpdate = lastRow.index.values[0][0]
                     else:
-                        lastUpdate = lastRow.index.values[0]
+                        lastUpdate = lastRow.index.values[0] if tableName not in ('trade_dates',) else lastRow.values[0][0]
             else:
                 cursor = self.connMysqlRead.cursor()
                 cursor.execute('SELECT MAX(TRADE_DT) FROM {}'.format(tableName))
@@ -134,7 +135,7 @@ class DataConnector:
             if hasTable:
                 h5BackupFile = os.path.join(self.h5Backup, '{}.h5'.format(tableName))
                 cpResult = os.system('COPY {0} {1} /Y'.format(h5File, h5BackupFile))         # 写入前进行数据备份
-                assert cpResult==0, '{0} ： backup h5 table {1} failed'.format(funcName, tableName)
+                assert cpResult==0, '{0} ： backup h5 table {1} failed! \n'.format(funcName, tableName)
             try:
                 tableData.to_hdf(path_or_buf=h5File,
                                  key=tableName,
@@ -146,7 +147,7 @@ class DataConnector:
                 print('rolling back')
                 reset = os.system('COPY {0} {1} /Y'.format(h5BackupFile, h5File)) if hasTable else os.system('DEL {}'.format(h5File))
                 assert reset==0
-                self.logger.error('{funcName} : Table {tableName} update Failed and Reset'.format(**formatDict))
+                self.logger.error('{funcName} : Table {tableName} update Failed and Reset \n'.format(**formatDict))
                 raise e
         else:
             try:
@@ -161,15 +162,15 @@ class DataConnector:
                 if not hasTable:
                     cursor.execute('DROP TABLE {0}'.format(tableName))
                     self.connMysqlRead.commit()
-                    self.logger.info('table {0} dropped !'.format(tableName))
+                    self.logger.info('table {0} dropped ! \n'.format(tableName))
                 else:
                     startDate = np.min(tableData.index.levels[0].values)
                     cursor.execute('DELETE FROM {0} WHERE TRADE_DT>={1}'.format(tableName, startDate))
                     self.connMysqlRead.commit()
-                    self.logger.info('table {0} cleared from {1}'.format(tableName, startDate))
+                    self.logger.info('table {0} cleared from {1} \n'.format(tableName, startDate))
                 raise e
         formatDict['timeUsed'] = time.time() - start
-        self.logger.info('{funcName} : Table {tableName} updated of shape ({shape0},{shape1}), with {timeUsed} seconds'.format(**formatDict))
+        self.logger.info('{funcName} : Table {tableName} updated of shape ({shape0},{shape1}), with {timeUsed} seconds \n'.format(**formatDict))
 
     def change_table(self,changeData, tableName, isH5=False):
         """

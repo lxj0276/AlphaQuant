@@ -3,20 +3,20 @@ __author__ = 'wangjp'
 import os
 import sys
 import time
-import datetime as dt
 
 import numpy as np
 import pandas as pd
 import configparser as cp
+from collections import OrderedDict
 
 import cx_Oracle
-import mysql.connector
 
 from HelpModules.Logger import Logger
 from HelpModules.Calendar import Calendar
 from DataReaderModule.CacheManager import CacheManager
 from DataReaderModule.Constants import ALIAS_FIELDS as alf
 from DataReaderModule.Constants import ALIAS_STATUS as als
+from DataReaderModule.Constants import ALIAS_TABLES as alt
 from DataReaderModule.Constants import rootPath, DatabaseNames, QuickTableFieldsDict, NO_QUICK
 
 
@@ -76,8 +76,10 @@ class DataReader:
         :param fields:
         :return:
         """
-        fields = list(set(fields))  # 去除重复列
-        fieldsByTable = {}
+        allFields = set(fields)  # 去除重复列
+        backFields = set([fld for fld in allFields if fld in QuickTableFieldsDict[alt.DERIVINFO]])
+        fields = list(allFields - backFields) + list(backFields)
+        fieldsByTable = OrderedDict()
         for fld in fields:
             if fld in self.QuickFieldsTableDict:
                 if fieldsByTable.get(self.QuickFieldsTableDict[fld]) is None:
@@ -103,7 +105,6 @@ class DataReader:
                  stkList=None,
                  fields=None,
                  selectType='CloseClose',
-                 tableName=None,
                  dbName=None,
                  useCache=True,
                  fromMysql=False):
@@ -134,165 +135,162 @@ class DataReader:
                                 format(','.join(fieldsByTable['NON_LOCAL'])))
         # take selected data
         outData = pd.DataFrame([])
-        if tableName is not None:   # 如果给定 tableName 则在指定的table取数据
-            raise NotImplementedError
-        else:
-            for table in fieldsByTable:
-                if table=='NON_LOCAL':  # 非本地已存储数据
-                    raise NotImplementedError
+        for table in fieldsByTable:
+            if table=='NON_LOCAL':  # 非本地已存储数据
+                raise NotImplementedError
+            else:
+                if table in self.cacheManager._tableSaved:      # 该表 (部分或全部字段) 已经被缓存
+                    cachedFields = [fld for fld in fieldsByTable[table] if fld in self.cacheManager._fieldsSaved[table]]
+                    unCachedFields = [fld for fld in fieldsByTable[table] if fld not in self.cacheManager._fieldsSaved[table]]
                 else:
-                    if table in self.cacheManager._tableSaved:      # 该表 (部分或全部字段) 已经被缓存
-                        cachedFields = [fld for fld in fieldsByTable[table] if fld in self.cacheManager._fieldsSaved[table]]
-                        unCachedFields = [fld for fld in fieldsByTable[table] if fld not in self.cacheManager._fieldsSaved[table]]
-                    else:
-                        cachedFields = []
-                        unCachedFields = fieldsByTable[table]
-                if cachedFields:    # 可以从缓存读取的字段
-                    start = time.time()
-                    # 先将缓存中存储的 全部字段 数据取出
-                    if dateList is not None:   # 避免通过 .loc[dateList, cachedFields] 的方式提取缓存数据时 遇到不存在的日期index
-                        headDate = dateList[0]
-                        tailDate = dateList[-1]
-                        dateSlice = slice(headDate,tailDate)
-                    else:
-                        dateSlice = slice(None)
-                        dateList = self.calendar.tdaysbetween(headDate=headDate, tailDate=tailDate)
-                    cachedIdx = (dateSlice,slice(None)) if stkList is None else (dateSlice, stkList)
-                    cachedData = self.cacheManager._tableSaved[table].loc[cachedIdx, cachedFields]    # 不存在的日期将不会被取出
-                    if table in ('RESPONSE',):  # 处理 response 中， 允许存在的 NaN 的情况
-                        cachedData = cachedData.replace(to_replace=self.cacheManager._nan_rep, value = np.nan)
-                    # 检查 需要提取的 字段 缓存的日期情况
-                    partialFields = []
-                    for fld in cachedFields:
-                        # 计算 该字段已缓存的 每天对应的股票数量
-                        fldStkCnt = self.cacheManager._fieldStkCnt[table][fld]
-                        fldStkCnt.columns = [alf.STKCNT]
-                        cachedDates = fldStkCnt.index.values      #  该字段当前存储的日期，可能存在部分天里没有全部股票
-                        extraDates = list(set(dateList) - set(cachedDates))    #  没有缓存的日期 该日期的全部股票都需要取
-                        countDiff = self.cacheManager._stockCounts.loc[cachedDates,:] - fldStkCnt      # 缓存里有该天，但是不是全部股票的数据， 为了省时间也都取出来
-                        partialDates = countDiff[countDiff[alf.STKCNT] > 0].index.values      # 已经缓存的 含有部分股票的天数
-                        takeFields = [alf.DATE, alf.STKCD, fld]
-                        addedFieldData = pd.DataFrame([], columns=[fld])    # 该字段所需提取的 缓存额外的 数据
-                        if extraDates:
-                            ####  需要提取全部股票的日期 #####
-                            if not fromMysql:
-                                extraDates = ['"{}"'.format(tdt) for tdt in extraDates]
-                            keyDict = {'fields': ','.join(takeFields),
-                                       'dbname': dbName,
-                                       'table':  '_'.join([table,'quick']) if table not in NO_QUICK else table,
-                                       'tdt': alf.DATE,
-                                       'stk': alf.STKCD,
-                                       'dates': ','.join(extraDates),
-                                       'stkcds': ','.join(stkListStr) if stkList is not None else None,
-                                       'stkcdLine': '' if stkList is None else 'AND ({0} IN ({1}))'.format(alf.STKCD, ','.join(stkListStr)),
-                                       }
-                            if fromMysql:
-                                sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE {tdt} IN ({dates}) {stkcdLine}'.format(**keyDict)
-                                extraFieldData = pd.read_sql(sql=sqlLines,
-                                                             con=self.connMysqlRead,
-                                                             index_col=indexFields,
-                                                             columns=takeFields)
-                            else:
-                                h5File = os.path.join(self.h5Path, '{}.h5'.format(table))
-                                whereLines = ''.join(['{tdt} in ({dates})'.format(**keyDict),
-                                                      '' if stkList is None else 'and {stk} in ({stkcds})'.format(**keyDict)])
-                                extraFieldData = pd.read_hdf(path_or_buf=h5File,
-                                                             key=table,
-                                                             where=whereLines,
-                                                             columns=takeFields,
-                                                             mode='r')
-                            addedFieldData = extraFieldData
-                        if partialDates.shape[0]>0:
-                            #### 需要提取部分股票的日期 ###
-                            partialStocks = list(set([pair[1] for pair in self.cacheManager._fieldsIndex[table][fld] if
-                                                      pair[0] in partialDates]))  # 已经缓存的那部分股票
-                            needStksStr = ['"{}"'.format(stk) for stk in (set(stkList) - set(partialStocks))] if stkList is not None else []
-                            if not fromMysql:
-                                partialDates = ['"{}"'.format(tdt) for tdt in partialDates]
-                            keyDict = {'fields': ','.join(takeFields),
-                                       'dbname': dbName,
-                                       'table':  '_'.join([table,'quick']) if table not in NO_QUICK else table,
-                                       'tdt': alf.DATE,
-                                       'stk': alf.STKCD,
-                                       'dates': ','.join(partialDates),
-                                       'stkcds': ','.join(stkListStr) if stkList is not None else None,
-                                       'stkcdLine': 'AND ({0} NOT IN ({1}))' if stkList is None else 'AND ({2} IN ({3}))'
-                                           .format(alf.STKCD, ','.join(partialStocks),alf.STKCD,','.join(needStksStr)),
-                                       }
-                            if fromMysql:
-                                sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE {tdt} IN ({dates}) {stkcdLine}'.format(**keyDict)
-                                partialStockData = pd.read_sql(sql=sqlLines, con=self.connMysqlRead, columns=fields, index_col=indexFields)
-                            else:
-                                h5File = os.path.join(self.h5Path, '{}.h5'.format(table))
-                                whereLines = ''.join(['{tdt} in ({dates})'.format(**keyDict),
-                                                      '' if stkList is None else 'and {stk} in ({stkcds})'.format(**keyDict)])
-                                partialStockData = pd.read_hdf(path_or_buf=h5File,
-                                                               key=table,
-                                                               where=whereLines,
-                                                               columns=takeFields,
-                                                               mode='r')
-                            addedFieldData = partialStockData if addedFieldData.empty else pd.concat([addedFieldData, partialStockData], axis=0, sort=False)
-                        if not addedFieldData.empty:   # 缓存字段不足，有新数据需要写入
-                            if not partialFields: # 第一次拼接, 直接把需要的 index 加满
-                                cachedData = pd.concat([cachedData, addedFieldData], axis=0, sort=False)
-                            else:       # 后续拼接，需要的index 都已有了，直接往里面写入就行
-                                cachedData.loc[addedFieldData.index, fld] = addedFieldData
-                            partialFields.append(fld)
-                            if useCache:
-                                self.cacheManager.checkinCache(tableName=table, tableData=addedFieldData)      # 将新取出的数据加入缓存
-                    outData = cachedData if outData.empty else outData.join(other=cachedData, on=indexFields)
-                    dataShape = cachedData.shape
-                    self.logger.info('Fileds {} loaded from CACHE'.format(','.join(cachedFields)))
-                    self.logger.info('Table {0} has {1} rows and {2} cols loaded from CACHE with {3} seconds'
-                                     .format(table, dataShape[0], dataShape[1], time.time() - start))
-                if unCachedFields:   # 需要从数据库读取的字段
-                    start = time.time()
-                    unCachedFields = indexFields + unCachedFields
-                    if not fromMysql:
-                        dateList = ['"{}"'.format(tdt) for tdt in dateList] if dateList is not None else None
-                    keyDict = {'fields': ','.join(unCachedFields),
-                               'dbname': dbName,
-                               'table': '_'.join([table,'quick']) if table not in NO_QUICK else table,
-                               'tdt': alf.DATE,
-                               'stk': alf.STKCD,
-                               'head': headDate,
-                               'tail': tailDate,
-                               'dates': '' if dateList is None else ','.join(dateList),
-                               'stkcds': ','.join(stkListStr) if stkList is not None else None,
-                               'stkcdLine': '' if stkList is None else 'AND ({0} IN ({1}))'.format(alf.STKCD, ','.join(stkListStr)),
-                               'signhead': '>=' if selectType in ('CloseClose', 'CloseOpen') else '>',
-                               'signtail': '<=' if selectType in ('OpenClose', 'CloseClose') else '<',
-                               }
-                    if fromMysql:
-                        if dateList is not None:    # 通过 dateList 提取
-                            sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE ({tdt} IN ({dates})) {stkcdLine}'.format(**keyDict)
-                        else:       #通过 headDate to tailDate 提取
-                            sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE {tdt}{signhead}{head} AND {tdt}{signtail}{tail} {stkcdLine}'.format(**keyDict)
-                        newData = pd.read_sql(sql=sqlLines,
-                                              con=self.connMysqlRead,
-                                              columns=unCachedFields,
-                                              index_col=indexFields)
-                    else:
-                        h5File = os.path.join(self.h5Path, '{}.h5'.format(table))
-                        if dateList is not None:
+                    cachedFields = []
+                    unCachedFields = fieldsByTable[table]
+            if cachedFields:    # 可以从缓存读取的字段
+                start = time.time()
+                # 先将缓存中存储的 全部字段 数据取出
+                if dateList is not None:   # 避免通过 .loc[dateList, cachedFields] 的方式提取缓存数据时 遇到不存在的日期index
+                    headDate = dateList[0]
+                    tailDate = dateList[-1]
+                    dateSlice = slice(headDate,tailDate)
+                else:
+                    dateSlice = slice(None)
+                    dateList = self.calendar.tdaysbetween(headDate=headDate, tailDate=tailDate)
+                cachedIdx = (dateSlice,slice(None)) if stkList is None else (dateSlice, stkList)
+                cachedData = self.cacheManager._tableSaved[table].loc[cachedIdx, cachedFields]    # 不存在的日期将不会被取出
+                if table in ('RESPONSE',):  # 处理 response 中， 允许存在的 NaN 的情况
+                    cachedData = cachedData.replace(to_replace=self.cacheManager._nan_rep, value = np.nan)
+                # 检查 需要提取的 字段 缓存的日期情况
+                partialFields = []
+                for fld in cachedFields:
+                    # 计算 该字段已缓存的 每天对应的股票数量
+                    fldStkCnt = self.cacheManager._fieldStkCnt[table][fld]
+                    fldStkCnt.columns = [alf.STKCNT]
+                    cachedDates = fldStkCnt.index.values      #  该字段当前存储的日期，可能存在部分天里没有全部股票
+                    extraDates = list(set(dateList) - set(cachedDates))    #  没有缓存的日期 该日期的全部股票都需要取
+                    countDiff = self.cacheManager._stockCounts.loc[cachedDates,:] - fldStkCnt      # 缓存里有该天，但是不是全部股票的数据， 为了省时间也都取出来
+                    partialDates = countDiff[countDiff[alf.STKCNT] > 0].index.values      # 已经缓存的 含有部分股票的天数
+                    takeFields = [alf.DATE, alf.STKCD, fld]
+                    addedFieldData = pd.DataFrame([], columns=[fld])    # 该字段所需提取的 缓存额外的 数据
+                    if extraDates:
+                        ####  需要提取全部股票的日期 #####
+                        if not fromMysql:
+                            extraDates = ['"{}"'.format(tdt) for tdt in extraDates]
+                        keyDict = {'fields': ','.join(takeFields),
+                                   'dbname': dbName,
+                                   'table':  '_'.join([table,'quick']) if table not in NO_QUICK else table,
+                                   'tdt': alf.DATE,
+                                   'stk': alf.STKCD,
+                                   'dates': ','.join(extraDates),
+                                   'stkcds': ','.join(stkListStr) if stkList is not None else None,
+                                   'stkcdLine': '' if stkList is None else 'AND ({0} IN ({1}))'.format(alf.STKCD, ','.join(stkListStr)),
+                                   }
+                        if fromMysql:
+                            sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE {tdt} IN ({dates}) {stkcdLine}'.format(**keyDict)
+                            extraFieldData = pd.read_sql(sql=sqlLines,
+                                                         con=self.connMysqlRead,
+                                                         index_col=indexFields,
+                                                         columns=takeFields)
+                        else:
+                            h5File = os.path.join(self.h5Path, '{}.h5'.format(table))
                             whereLines = ''.join(['{tdt} in ({dates})'.format(**keyDict),
                                                   '' if stkList is None else 'and {stk} in ({stkcds})'.format(**keyDict)])
+                            extraFieldData = pd.read_hdf(path_or_buf=h5File,
+                                                         key=table,
+                                                         where=whereLines,
+                                                         columns=takeFields,
+                                                         mode='r')
+                        addedFieldData = extraFieldData
+                    if partialDates.shape[0]>0:
+                        #### 需要提取部分股票的日期 ###
+                        partialStocks = list(set([pair[1] for pair in self.cacheManager._fieldsIndex[table][fld] if
+                                                  pair[0] in partialDates]))  # 已经缓存的那部分股票
+                        needStksStr = ['"{}"'.format(stk) for stk in (set(stkList) - set(partialStocks))] if stkList is not None else []
+                        if not fromMysql:
+                            partialDates = ['"{}"'.format(tdt) for tdt in partialDates]
+                        keyDict = {'fields': ','.join(takeFields),
+                                   'dbname': dbName,
+                                   'table':  '_'.join([table,'quick']) if table not in NO_QUICK else table,
+                                   'tdt': alf.DATE,
+                                   'stk': alf.STKCD,
+                                   'dates': ','.join(partialDates),
+                                   'stkcds': ','.join(stkListStr) if stkList is not None else None,
+                                   'stkcdLine': 'AND ({0} NOT IN ({1}))' if stkList is None else 'AND ({2} IN ({3}))'
+                                       .format(alf.STKCD, ','.join(partialStocks),alf.STKCD,','.join(needStksStr)),
+                                   }
+                        if fromMysql:
+                            sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE {tdt} IN ({dates}) {stkcdLine}'.format(**keyDict)
+                            partialStockData = pd.read_sql(sql=sqlLines, con=self.connMysqlRead, columns=fields, index_col=indexFields)
                         else:
-                            whereLines = ''.join(['{tdt}{signhead}"{head}" and {tdt}{signtail}"{tail}"'.format(**keyDict),
+                            h5File = os.path.join(self.h5Path, '{}.h5'.format(table))
+                            whereLines = ''.join(['{tdt} in ({dates})'.format(**keyDict),
                                                   '' if stkList is None else 'and {stk} in ({stkcds})'.format(**keyDict)])
-                        newData = pd.read_hdf(path_or_buf=h5File,
-                                              key=table,
-                                              where=whereLines,
-                                              columns=unCachedFields,
-                                              mode='r')
-                    if useCache:
-                        self.cacheManager.checkinCache(tableName=table, tableData=newData)     # 数据库取出的数据加缓存
-                    outData = newData if outData.empty else outData.join(other=newData, on=indexFields)
-                    dataShape = newData.shape
-                    self.logger.info('Fileds {} loaded from LOCAL DATABASE'.format(','.join(unCachedFields)))
-                    self.logger.info('Table {0} has {1} rows and {2} cols loaded from LOCAL DATABASE with {3} seconds'
-                                     .format(table, dataShape[0], dataShape[1], time.time() - start))
-                self.logger.info('Table {0} : fields {1} loaded'.format(table, ','.join(fieldsByTable[table])))
+                            partialStockData = pd.read_hdf(path_or_buf=h5File,
+                                                           key=table,
+                                                           where=whereLines,
+                                                           columns=takeFields,
+                                                           mode='r')
+                        addedFieldData = partialStockData if addedFieldData.empty else pd.concat([addedFieldData, partialStockData], axis=0, sort=False)
+                    if not addedFieldData.empty:   # 缓存字段不足，有新数据需要写入
+                        if not partialFields: # 第一次拼接, 直接把需要的 index 加满
+                            cachedData = pd.concat([cachedData, addedFieldData], axis=0, sort=False)
+                        else:       # 后续拼接，需要的index 都已有了，直接往里面写入就行
+                            cachedData.loc[addedFieldData.index, fld] = addedFieldData
+                        partialFields.append(fld)
+                        if useCache:
+                            self.cacheManager.checkinCache(tableName=table, tableData=addedFieldData)      # 将新取出的数据加入缓存
+                outData = cachedData if outData.empty else outData.join(other=cachedData, on=indexFields)
+                dataShape = cachedData.shape
+                self.logger.info('Fileds {} loaded from CACHE'.format(','.join(cachedFields)))
+                self.logger.info('Table {0} has {1} rows and {2} cols loaded from CACHE with {3} seconds'
+                                 .format(table, dataShape[0], dataShape[1], time.time() - start))
+            if unCachedFields:   # 需要从数据库读取的字段
+                start = time.time()
+                unCachedFields = indexFields + unCachedFields
+                if not fromMysql:
+                    dateList = ['"{}"'.format(tdt) for tdt in dateList] if dateList is not None else None
+                keyDict = {'fields': ','.join(unCachedFields),
+                           'dbname': dbName,
+                           'table': '_'.join([table,'quick']) if table not in NO_QUICK else table,
+                           'tdt': alf.DATE,
+                           'stk': alf.STKCD,
+                           'head': headDate,
+                           'tail': tailDate,
+                           'dates': '' if dateList is None else ','.join(dateList),
+                           'stkcds': ','.join(stkListStr) if stkList is not None else None,
+                           'stkcdLine': '' if stkList is None else 'AND ({0} IN ({1}))'.format(alf.STKCD, ','.join(stkListStr)),
+                           'signhead': '>=' if selectType in ('CloseClose', 'CloseOpen') else '>',
+                           'signtail': '<=' if selectType in ('OpenClose', 'CloseClose') else '<',
+                           }
+                if fromMysql:
+                    if dateList is not None:    # 通过 dateList 提取
+                        sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE ({tdt} IN ({dates})) {stkcdLine}'.format(**keyDict)
+                    else:       #通过 headDate to tailDate 提取
+                        sqlLines = 'SELECT {fields} FROM {dbname}.{table} WHERE {tdt}{signhead}{head} AND {tdt}{signtail}{tail} {stkcdLine}'.format(**keyDict)
+                    newData = pd.read_sql(sql=sqlLines,
+                                          con=self.connMysqlRead,
+                                          columns=unCachedFields,
+                                          index_col=indexFields)
+                else:
+                    h5File = os.path.join(self.h5Path, '{}.h5'.format(table))
+                    if dateList is not None:
+                        whereLines = ''.join(['{tdt} in ({dates})'.format(**keyDict),
+                                              '' if stkList is None else 'and {stk} in ({stkcds})'.format(**keyDict)])
+                    else:
+                        whereLines = ''.join(['{tdt}{signhead}"{head}" and {tdt}{signtail}"{tail}"'.format(**keyDict),
+                                              '' if stkList is None else 'and {stk} in ({stkcds})'.format(**keyDict)])
+                    newData = pd.read_hdf(path_or_buf=h5File,
+                                          key=table,
+                                          where=whereLines,
+                                          columns=unCachedFields,
+                                          mode='r')
+                if useCache:
+                    self.cacheManager.checkinCache(tableName=table, tableData=newData)     # 数据库取出的数据加缓存
+                outData = newData if outData.empty else outData.join(other=newData, on=indexFields)
+                dataShape = newData.shape
+                self.logger.info('Fileds {} loaded from LOCAL DATABASE'.format(','.join(unCachedFields)))
+                self.logger.info('Table {0} has {1} rows and {2} cols loaded from LOCAL DATABASE with {3} seconds'
+                                 .format(table, dataShape[0], dataShape[1], time.time() - start))
+            self.logger.info('Table {0} : fields {1} loaded'.format(table, ','.join(fieldsByTable[table])))
         return outData
 
     def get_responses(self,
@@ -428,14 +426,13 @@ class DataReader:
 if __name__=='__main__':
     obj = DataReader()
 
-    # t = obj.get_data(headDate=None,
-    #                  tailDate=None,
-    #                  stkList=['000001.SZ','000002.SZ','000004.SZ'],
-    #                  fields=[alf.OPEN,alf.HIGH,alf.LOW],
-    #                  tableName=None,
-    #                  dbName=None)
-    #
-    # print(t.shape)
+    t = obj.get_data(headDate=None,
+                     tailDate=None,
+                     stkList=['000001.SZ','000002.SZ','000004.SZ'],
+                     fields=[alf.OPEN,alf.HIGH,alf.LOW, 'S_VAL_MV'],
+                     dbName=None)
+
+    print(t)
 
     # t = obj.get_responses(headDate=20160101,tailDate=None,retTypes={'OC': [1], 'OO': [2], })
     # t.to_csv('returns.csv')
@@ -446,8 +443,7 @@ if __name__=='__main__':
     # t1 = obj.get_data(headDate=20170901,
     #                   tailDate=20180301,
     #                   stkList=['000002.SZ','000003.SZ','000004.SZ'],
-    #                   fields=[alf.OPEN,alf.HIGH,alf.CLOSE],
-    #                   tableName=None,
+    #                   fields=[alf.OPEN,alf.HIGH,alf.CLOSE,alf.],
     #                   dbName=None,
     #                   fromMysql=False)
     # t2 = obj.get_data(headDate=20170901,

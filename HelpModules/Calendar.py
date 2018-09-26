@@ -115,6 +115,20 @@ class Calendar:
             idx = (self._tradeDates > headDate) & (self._tradeDates < tailDate)
         return self._tradeDates[idx]
 
+    def tendsbetween(self, headDate, tailDate, selectType='CloseOpen', frequency='month'):
+        """
+        提取不同周期的末端 交易日
+        :param headDate:
+        :param tailDate:
+        :param frequency:
+        :return:
+        """
+        headDate = str(headDate)
+        tailDate = str(tailDate)
+        if frequency=='year':
+            years = []
+
+
 
 
 if __name__=='__main__':

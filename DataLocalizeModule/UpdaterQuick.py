@@ -23,6 +23,44 @@ class UpdaterQuick:
         self.logger.info('')
         self.dataConnector = DataConnector(logger=self.logger)
 
+    def update_trade_dates_h5(self):
+        funcName = sys._getframe().f_code.co_name
+        tableName = ALIAS_TABLES.TRDDATES
+        # 查看最新数据进度
+        availableDate = self.dataConnector.get_last_available(fast=True)
+        lastUpdt = self.dataConnector.get_last_update(tableName=tableName, isH5=True)
+        if availableDate > str(lastUpdt):
+            sqlLines = 'SELECT * FROM {0} WHERE {1}>{2}'.format(tableName, ALIAS_FIELDS.DATE, lastUpdt)
+            tradeData = pd.read_sql(sql=sqlLines, con=self.dataConnector.connMysqlRead)
+            self.dataConnector.store_table(tableData=tradeData,
+                                           tableName=tableName,
+                                           if_exist='append',
+                                           isH5=True)
+        else:
+            self.logger.info('{0} : {1} has no new data to update \n'.format(funcName, tableName))
+
+    def update_trade_info_h5(self):
+        """
+        更新 ashareeodprices H5 file
+        :return:
+        """
+        funcName = sys._getframe().f_code.co_name
+        tableName = ALIAS_TABLES.TRAEDINFO
+        # 查看最新数据进度
+        availableDate = self.dataConnector.get_last_available(fast=True)
+        lastUpdt = self.dataConnector.get_last_update(tableName=tableName, isH5=True)
+        if availableDate > str(lastUpdt):
+            sqlLines = 'SELECT * FROM {0} WHERE {1}>{2}'.format(tableName, ALIAS_FIELDS.DATE, lastUpdt)
+            tradeData = pd.read_sql(sql=sqlLines, con=self.dataConnector.connMysqlRead)
+            tradeData.sort_values(by=[ALIAS_FIELDS.DATE, ALIAS_FIELDS.STKCD], inplace=True)
+            tradeData.set_index([ALIAS_FIELDS.DATE, ALIAS_FIELDS.STKCD], inplace=True)
+            self.dataConnector.store_table(tableData=tradeData,
+                                           tableName=tableName,
+                                           if_exist='append',
+                                           isH5=True)
+        else:
+            self.logger.info('{0} : {1} has no new data to update \n'.format(funcName, tableName))
+
     def _get_joined_table(self, mysqlCursor, subTableCuts, subCutHead, table, fields, bounds, checkSize=True):
         """
         返回 拼接好的 dataframe， 不做 排序 与 加索引
@@ -121,7 +159,7 @@ class UpdaterQuick:
         newAvailableDate = self.dataConnector.get_last_available(fast=True)
         # 再更新需要拼接的表格
         for table in quickTableDict:
-            if table.upper()=='ASHARECAPITALIZATION':
+            if table.upper() in ('ASHARECAPITALIZATION', 'ASHAREFLOATHOLDER'):
                 continue
             tableName = table if updateH5 else '_'.join([table, 'quick'])
             # 读取现存的最近更新日期
@@ -165,50 +203,14 @@ class UpdaterQuick:
                                                    isH5=updateH5,
                                                    typeDict=FieldTypeDict)
                 else:
-                    self.logger.info('{0} : {1} has no new data to update '.format(funcName, tableName))
+                    self.logger.info('{0} : {1} has no new data to update \n'.format(funcName, tableName))
 
-    def update_trade_info_h5(self):
-        """
-        更新 ashareeodprices H5 file
-        :return:
-        """
-        funcName = sys._getframe().f_code.co_name
-        tableName = ALIAS_TABLES.TRAEDINFO
-        # 查看最新数据进度
-        availableDate = self.dataConnector.get_last_available(fast=True)
-        lastUpdt = self.dataConnector.get_last_update(tableName=tableName, isH5=True)
-        if availableDate > str(lastUpdt):
-            sqlLines = 'SELECT * FROM {0} WHERE {1}>{2}'.format(tableName, ALIAS_FIELDS.DATE, lastUpdt)
-            tradeData = pd.read_sql(sql=sqlLines, con=self.dataConnector.connMysqlRead)
-            tradeData.sort_values(by=[ALIAS_FIELDS.DATE, ALIAS_FIELDS.STKCD], inplace=True)
-            tradeData.set_index([ALIAS_FIELDS.DATE, ALIAS_FIELDS.STKCD], inplace=True)
-            self.dataConnector.store_table(tableData=tradeData,
-                                           tableName=tableName,
-                                           if_exist='append',
-                                           isH5=True)
-        else:
-            self.logger.info('{0} : {1} has no new data to update '.format(funcName, tableName))
 
-    def update_trade_dates_h5(self):
-        funcName = sys._getframe().f_code.co_name
-        tableName = ALIAS_TABLES.TRDDATES
-        # 查看最新数据进度
-        availableDate = self.dataConnector.get_last_available(fast=True)
-        lastUpdt = self.dataConnector.get_last_update(tableName=tableName, isH5=True)
-        if availableDate > str(lastUpdt):
-            sqlLines = 'SELECT * FROM {0} WHERE {1}>{2}'.format(tableName, ALIAS_FIELDS.DATE, lastUpdt)
-            tradeData = pd.read_sql(sql=sqlLines, con=self.dataConnector.connMysqlRead)
-            self.dataConnector.store_table(tableData=tradeData,
-                                           tableName=tableName,
-                                           if_exist='append',
-                                           isH5=True)
-        else:
-            self.logger.info('{0} : {1} has no new data to update '.format(funcName, tableName))
 
 
 if __name__=='__main__':
     obj = UpdaterQuick()
-    obj.update_trade_info_h5()
     obj.update_trade_dates_h5()
+    obj.update_trade_info_h5()
     obj.update_quick_tables(updateH5=True)
-    obj.update_quick_tables(updateH5=False)
+    # obj.update_quick_tables(updateH5=False)

@@ -66,7 +66,7 @@ class BaseDataProcessor:
                                            isH5=updateH5,
                                            typeDict=typeDict)
         else:
-            self.logger.info('{0} : No new data to update, last update {1}'.format(funcName, lastUpdt))
+            self.logger.info('{0} : No new data to update, last update {1} \n'.format(funcName, lastUpdt))
 
     def update_features_filter(self, updateH5=False):
         """
@@ -143,9 +143,9 @@ class BaseDataProcessor:
                                            if_exist='append',
                                            isH5=updateH5,
                                            typeDict=filterTypes)
-            self.logger.info('{0} : updated from {1} to {2}'.format(funcName, lastUpdt, availableDate))
+            self.logger.info('{0} : updated from {1} to {2} \n'.format(funcName, lastUpdt, availableDate))
         else:
-            self.logger.info('{0} : No new data to update, last update {1}'.format(funcName, lastUpdt))
+            self.logger.info('{0} : No new data to update, last update {1} \n'.format(funcName, lastUpdt))
 
     def update_response_filter(self, updateH5=False):
         """
@@ -204,9 +204,9 @@ class BaseDataProcessor:
                                            if_exist='append',
                                            isH5=updateH5,
                                            typeDict=filterTypes)
-            self.logger.info('{0} : updated from {1} to {2}'.format(funcName, lastUpdt, availableDate))
+            self.logger.info('{0} : updated from {1} to {2} \n'.format(funcName, lastUpdt, availableDate))
         else:
-            self.logger.info('{0} : no new data to update, last update {1}'.format(funcName, lastUpdt))
+            self.logger.info('{0} : no new data to update, last update {1} \n'.format(funcName, lastUpdt))
 
     def update_response(self, updateH5=False):
         """
@@ -271,9 +271,9 @@ class BaseDataProcessor:
                                                if_exist='append',
                                                isH5=True
                                                )
-            self.logger.info('{0} : updated from {1} to {2}'.format(funcName, lastUpdt, availableDate))
+            self.logger.info('{0} : updated from {1} to {2} \n'.format(funcName, lastUpdt, availableDate))
         else:
-            self.logger.info('{0} : no new data to update, last update {1}'.format(funcName, lastUpdt))
+            self.logger.info('{0} : no new data to update, last update {1} \n'.format(funcName, lastUpdt))
 
 
 if __name__=='__main__':
@@ -285,8 +285,13 @@ if __name__=='__main__':
     obj.update_response_filter(updateH5=True)
     obj.update_response(updateH5=True)
 
-    obj.update_stock_count(updateH5=False)
-    obj.update_features_filter(updateH5=False)
-    obj.update_response_filter(updateH5=False)
-    obj.update_response(updateH5=False)
+    # obj.update_stock_count(updateH5=False)
+    # obj.update_features_filter(updateH5=False)
+    # obj.update_response_filter(updateH5=False)
+    # obj.update_response(updateH5=False)       # 太慢了
 
+    print(obj.dataConnector.get_last_update('ASHAREEODPRICES', isH5=True, lastID=True))
+    print(obj.dataConnector.get_last_update('RESPONSE', isH5=True, lastID=True))
+    print(obj.dataConnector.get_last_update('FEATURES_FILTER', isH5=True, lastID=True))
+    print(obj.dataConnector.get_last_update('RESPONSE_FILTER', isH5=True, lastID=True))
+    print(obj.dataConnector.get_last_update('ASHAREST', isH5=True, lastID=True))

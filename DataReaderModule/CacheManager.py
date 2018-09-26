@@ -133,8 +133,9 @@ class CacheManager:
                 break   # 已找到当前表格所属level 不必继续查找了
         if not cacheCandidable:     # 非可缓存数据
             self.logger.info('{0} : not cache candidable ,will not be saved'.format(tableName))
-        tbShape = self._tableSaved[tableName].shape
-        self.logger.info('Table {0} shape after cache : {1} rows and {2} cols'.format(tableName, tbShape[0], tbShape[1]))
+        else:
+            tbShape = self._tableSaved[tableName].shape
+            self.logger.info('Table {0} shape after cache : {1} rows and {2} cols'.format(tableName, tbShape[0], tbShape[1]))
 
 if __name__=='__main__':
 

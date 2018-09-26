@@ -146,15 +146,6 @@ class Calculator:
         ret = ret/adjfct
         return ret
 
-
-    @classmethod
-    def Rank(cls, x, by=ALIAS_FIELDS.STKCD, retDf=False):
-        # method : {‘average’, ‘min’, ‘max’, ‘first’, ‘dense’}
-        # na_option : {‘keep’, ‘top’, ‘bottom’}
-        x = Calculator._transData(x=x, retDf=retDf)
-        ret = x.groupby(level=[by],sort=False,as_index=~retDf,group_keys=False).rank(method='average', na_option='bottom', pct=False, ascending=True)
-        return ret
-
     @classmethod
     def TsToMin(cls, x, num, by=ALIAS_FIELDS.STKCD, minobs=0, retDf=False):
         # NaN 处理：
@@ -174,6 +165,20 @@ class Calculator:
         x = Calculator._transData(x=x, retDf=retDf)
         ret = x.groupby(level=[by],sort=False,as_index=~retDf,group_keys=False).rolling(window=num, min_periods=minobs).apply(findMax, raw=True)
         return ret
+
+    @classmethod
+    def Rank(cls, x, by=ALIAS_FIELDS.DATE, retDf=False):
+        # 注 不应再时间序列排序中使用该函数，应用于截面排序
+        # method : {‘average’, ‘min’, ‘max’, ‘first’, ‘dense’}
+        # na_option : {‘keep’, ‘top’, ‘bottom’}
+        x = Calculator._transData(x=x, retDf=retDf)
+        ret = x.groupby(level=[by],sort=False,as_index=~retDf,group_keys=False).rank(method='average', na_option='bottom', pct=False, ascending=True)
+        return ret
+
+    @classmethod
+    def TsRank(cls, x, by=ALIAS_FIELDS.STKCD, retDf=False):
+        # 用于时间序列排序， i.e 当前排名为 在所有过去数值中的 排名
+        pass
 
     @classmethod
     def FindRank(cls, x, num, by=ALIAS_FIELDS.STKCD, minobs=0, retDf=False):
