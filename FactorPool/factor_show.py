@@ -7,9 +7,16 @@ from DataReaderModule.Constants import ALIAS_RESPONSE as alr
 from DataReaderModule.Constants import ALIAS_INDICATORS as ali
 
 if __name__=='__main__':
-    obj = FactorShow(r'D:\AlphaQuant\FactorPool\factors_data')
-    obj.show_curves(factorName='wms5',
+    obj = FactorShow(fctDataPath=r'D:\AlphaQuant\FactorPool\factors_data')
+
+    fctName = 'acd5'
+    headDate = 20150601
+
+    obj.show_curves(factorName=fctName,
                     indicator=ali.TBDF,
-                    headDate=20170101,
+                    headDate=headDate,
                     responses=[alr.OC1, alr.CCG1, alr.OCG1, alr.CCG2, alr.OCG2])
-    # obj.show_statistics(factorName='positiveMom5',outPath='D:\AlphaQuant')
+
+    # obj.show_statistics(factorName=fctName,
+    #                     headDate=headDate,
+    #                     outPath='D:\AlphaQuant')

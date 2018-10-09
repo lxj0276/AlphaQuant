@@ -32,7 +32,7 @@ class FactorBase:
             FactorBase.factorIO = FactorIO(fctDataPath=update.fctDataPath)
         if FactorBase.dataReader is None:
             FactorBase.dataReader = DataReader(cacheLevel='Level1', connectRemote=False)
-        self.headDate = self.dataReader.calendar._calibrate_date(currDate=20100101,currSide='right')
+        self.headDate = self.dataReader.calendar._calibrate_date(currDate=20020101,currSide='right')
         self.tailDate = self.dataReader.calendar._tradeDates[-1]
 
     def factor_definition(self):
@@ -109,7 +109,7 @@ class FactorBase:
         self.factorIO.write_factor_indcators(factorName=self.factorName,
                                              factorIndicators=factorIndicators,
                                              ifExist=ifExist)
-        print('Factor {0} updated from {1} to {2}, {3} days, with {4} seconds'.format(self.factorName,
+        print('Factor {0} updated from {1} to {2}, {3} days, with {4} seconds \n'.format(self.factorName,
                                                                                       self.headDate,
                                                                                       self.tailDate,
                                                                                       updateDateNum,

@@ -286,6 +286,7 @@ class UpdaterOrigin:
         updateSQL = 'SELECT {0} FROM {1}.{2}'.format(','.join(fields), WPFX, tableName)
         stInfo = pd.read_sql(sql=updateSQL, con=self.connWind)
         if stInfo.shape[0]>obsNum:
+            stInfo.fillna(np.nan, inplace=True)
             try:
                 print('{0} : {1} obs to update'.format(funcName, stInfo.shape[0]))
                 pd.io.sql.to_sql(stInfo,

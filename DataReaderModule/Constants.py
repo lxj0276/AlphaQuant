@@ -17,20 +17,52 @@ class ALIAS_TABLES:         # 表名标记
     DERIVINFO = 'ASHAREEODDERIVATIVEINDICATOR'
 
 class ALIAS_FIELDS:         # 基础数据字段标记
-    DATE = 'TRADE_DT'
-    STKCD = 'S_INFO_WINDCODE'
-    STKCNT = 'DAILY_COUNT'
+    DATE = 'TRADE_DT'                   # 日期
+    STKCD = 'S_INFO_WINDCODE'           # 股票代码
+    STKCNT = 'DAILY_COUNT'              # 每日股票数量
 
-    OPEN = 'S_DQ_OPEN'
-    HIGH = 'S_DQ_HIGH'
-    LOW = 'S_DQ_LOW'
-    CLOSE = 'S_DQ_CLOSE'
-    VOLUME = 'S_DQ_VOLUME'
-    AMOUNT = 'S_DQ_AMOUNT'
-    PCTCHG = 'S_DQ_PCTCHANGE'
-    TRDSTAT = 'S_DQ_TRADESTATUS'
-    ADJFCT = 'S_DQ_ADJFACTOR'
-    STSTAT = 'TYPE_ST'
+    OPEN = 'S_DQ_OPEN'                  # 开盘价（未复权）
+    HIGH = 'S_DQ_HIGH'                  # 最高（未复权）
+    LOW = 'S_DQ_LOW'                    # 最低（未复权）
+    CLOSE = 'S_DQ_CLOSE'                # 收盘（未复权）
+    VOLUME = 'S_DQ_VOLUME'              # 成交量
+    AMOUNT = 'S_DQ_AMOUNT'              # 成交额
+    PCTCHG = 'S_DQ_PCTCHANGE'           # 收益率（收盘）
+    TRDSTAT = 'S_DQ_TRADESTATUS'        # 交易状态
+    ADJFCT = 'S_DQ_ADJFACTOR'           # 后复权因子
+    STSTAT = 'TYPE_ST'                  # ST 状态
+
+    MKTCAP = 'S_VAL_MV',                # 当日总市值
+    MKTCAPFL = 'S_DQ_MV',               # 当日流通总市值
+    SHR = 'TOT_SHR_TODAY',              # 当日总股本
+    SHRFL = 'FLOAT_A_SHR_TODAY',        # 当日流通股本
+    SHRFREE = 'FREE_SHARES_TODAY',      # 当日自由流通股本
+    TURN = 'S_DQ_TURN',                 # 换手率
+    TURNFREE = 'S_DQ_FREETURNOVER',     # 换手率(基准.自由流通股本)
+
+    PE = 'S_VAL_PE',                    # 市盈率(PE)
+    PETTM = 'S_VAL_PE_TTM',             # 市盈率(PE,TTM)
+    PB = 'S_VAL_PB_NEW',                # 市净率(PB)
+    PCFOCF = 'S_VAL_PCF_OCF',           # 市现率(PCF,经营现金流)
+    PCFOCFTTM = 'S_VAL_PCF_OCFTTM',     # 市现率(PCF,经营现金流TTM)
+    PCFNCF = 'S_VAL_PCF_NCF',           # 市现率(PCF,现金净流量)
+    PCFNCFTTM = 'S_VAL_PCF_NCFTTM',     # 市现率(PCF,现金净流量TTM)
+    PS = 'S_VAL_PS',                    # 市销率(PS)
+    PSTTM = 'S_VAL_PS_TTM',             # 市销率(PS,TTM)
+    PDD = 'S_PRICE_DIV_DPS',            # 股价/每股派息
+    NETASSET = 'NET_ASSETS_TODAY',      # 当日净资产
+    OPERREVTTM = 'OPER_REV_TTM',        # 营业收入(TTM)
+    OPERREVLYR = 'OPER_REV_LYR',        # 营业收入(LYR)
+    NETPCMTTM = 'NET_PROFIT_PARENT_COMP_TTM',  # 归属母公司净利润(TTM)
+    NETPCMLYR = 'NET_PROFIT_PARENT_COMP_LYR',  # 归属母公司净利润(LYR)
+    NETCASHTTM = 'NET_CASH_FLOWS_OPER_ACT_TTM',  # 经营活动产生的现金流量净额(TTM)
+    NETCASHLYR = 'NET_CASH_FLOWS_OPER_ACT_LYR',  # 经营活动产生的现金流量净额(LYR)
+    INCRCASHTTM = 'NET_INCR_CASH_CASH_EQU_TTM',  # 现金及现金等价物净增加额(TTM)
+    INCRCASHLYR = 'NET_INCR_CASH_CASH_EQU_LYR',  # 现金及现金等价物净增加额(LYR)
+    MAX52W = 'S_PQ_ADJHIGH_52W',        # 52周最高价(复权)
+    MIN52W = 'S_PQ_ADJLOW_52W',         # 52周最低价(复权)
+
+
 
 class ALIAS_RESPONSE:
     OC1 = 'OCDay1'

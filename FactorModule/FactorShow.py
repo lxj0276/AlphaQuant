@@ -36,7 +36,7 @@ class FactorShow:
                                                       headDate=headDate,
                                                       tailDate=tailDate)
         indSingle = indSingle[indicator]
-        # indSingle['OCRet2'] = indSingle['OCDay1'] + indSingle['CCDay1Gap1']
+        indSingle['OCRet2'] = indSingle['OCDay1'] + indSingle['CCDay1Gap1']     # temporary
         indSingle = indSingle.cumsum()
         plt.figure(figsize=(20, 13))
         for dumi, col in enumerate(indSingle.columns):
@@ -78,7 +78,8 @@ class FactorShow:
                                   indAvg.to_frame('avg_{}'.format(indType)),
                                   indTst.to_frame('tstat_{}'.format(indType))],
                                  axis=1)
-        outFile = os.path.join(outPath,'{0}_statistics.csv'.format(factorName))
+        dateList = indValues[indicators[0]].index.values
+        outFile = os.path.join(outPath,'{0}_statistics_{1}_{2}.csv'.format(factorName, dateList[0], dateList[-1]))
         outStats.to_csv(outFile)
 
 

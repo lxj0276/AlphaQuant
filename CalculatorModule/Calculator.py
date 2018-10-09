@@ -25,6 +25,18 @@ class Calculator:
             return x[x.columns[0]] if isinstance(x,pd.DataFrame) else x
 
     @classmethod
+    def cmpMin(cls, x, y, retDf=False):
+        idx = x.le(other=y)
+        minVal = x * idx + y * (~idx)
+        return Calculator._transData(x=minVal, retDf=retDf)
+
+    @classmethod
+    def cmpMax(cls, x, y, retDf=False):
+        idx = x.ge(other=y)
+        maxVal = x * idx + y * (~idx)
+        return Calculator._transData(x=maxVal, retDf=retDf)
+
+    @classmethod
     def Delay(cls, x, num, by=ALIAS_FIELDS.STKCD, fillNan=None, retDf=False):
         x = Calculator._transData(x=x, retDf=retDf)
         ret = x.groupby(level=[by],sort=False,as_index=~retDf,group_keys=False).shift(periods=num)
